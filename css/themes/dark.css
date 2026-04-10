@@ -1,0 +1,78 @@
+/*
+ * Theme: Dark (Midnight Blue)
+ * The original dark theme for Deluge Remote Modern.
+ */
+
+[data-theme="dark"] {
+	--theme-bg-primary:        #1a1a2e;
+	--theme-bg-secondary:      #16213e;
+	--theme-bg-tertiary:       #0f3460;
+	--theme-bg-overlay:        rgba(0, 0, 0, 0.85);
+
+	--theme-text-primary:      #e4e4e7;
+	--theme-text-secondary:    #a1a1aa;
+	--theme-text-muted:        #71717a;
+
+	--theme-border-color:      #334155;
+	--theme-border-light:      #1e293b;
+
+	--theme-accent:            #60a5fa;
+	--theme-accent-hover:      #93bbfc;
+	--theme-success:           #4ade80;
+	--theme-danger:            #f87171;
+	--theme-warning:           #fbbf24;
+
+	--theme-input-bg:          #1e293b;
+	--theme-input-border:      #475569;
+	--theme-input-focus:       #60a5fa;
+
+	--theme-btn-bg:            #1e293b;
+	--theme-btn-border:        #475569;
+	--theme-btn-hover:         #334155;
+	--theme-btn-text:          #e4e4e7;
+
+	--theme-progress-bg:       #334155;
+	--theme-progress-download: #60a5fa;
+	--theme-progress-seed:     #4ade80;
+	--theme-progress-pause:    #6b7280;
+	--theme-progress-queued:   #e2e61c;
+	--theme-progress-check:    #a78bfa;
+	--theme-progress-finished: #34d399;
+	--theme-progress-error:    #f87171;
+
+	--theme-row-hover:         rgba(96, 165, 250, 0.08);
+}
+
+/* Also provide system-auto variables (used by @media prefers-color-scheme in theme-base) */
+:root {
+	--theme-auto-bg-primary:        #1a1a2e;
+	--theme-auto-bg-secondary:      #16213e;
+	--theme-auto-bg-tertiary:       #0f3460;
+	--theme-auto-bg-overlay:        rgba(0, 0, 0, 0.85);
+	--theme-auto-text-primary:      #e4e4e7;
+	--theme-auto-text-secondary:    #a1a1aa;
+	--theme-auto-text-muted:        #71717a;
+	--theme-auto-border-color:      #334155;
+	--theme-auto-border-light:      #1e293b;
+	--theme-auto-accent:            #60a5fa;
+	--theme-auto-accent-hover:      #93bbfc;
+	--theme-auto-success:           #4ade80;
+	--theme-auto-danger:            #f87171;
+	--theme-auto-warning:           #fbbf24;
+	--theme-auto-input-bg:          #1e293b;
+	--theme-auto-input-border:      #475569;
+	--theme-auto-input-focus:       #60a5fa;
+	--theme-auto-btn-bg:            #1e293b;
+	--theme-auto-btn-border:        #475569;
+	--theme-auto-btn-hover:         #334155;
+	--theme-auto-btn-text:          #e4e4e7;
+	--theme-auto-progress-bg:       #334155;
+	--theme-auto-progress-download: #60a5fa;
+	--theme-auto-progress-seed:     #4ade80;
+	--theme-auto-progress-pause:    #6b7280;
+	--theme-auto-progress-queued:   #e2e61c;
+	--theme-auto-progress-check:    #a78bfa;
+	--theme-auto-progress-finished: #34d399;
+	--theme-auto-progress-error:    #f87171;
+	--theme-auto-row-hover:         rgba(96, 165, 250, 0.08);
+}

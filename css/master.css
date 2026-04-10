@@ -1,0 +1,105 @@
+/* =====================================================================
+   master.css — Global styles shared by popup and options pages
+   ===================================================================== */
+
+body {
+	color: #373737;
+	margin: 0;
+	min-height: 200px;
+	width: 780px;
+	overflow-x: hidden;
+}
+
+a {
+	border-bottom: 1px dotted #BBBBBB;
+	color: #425570;
+	text-decoration: none;
+}
+
+a:hover {
+	color: #000000;
+}
+
+.clr {
+	clear: both;
+}
+
+/* ── Add Torrent Dialog ──────────────────────────────────────────────── */
+
+.dialog .inner {
+	margin: 20px auto 0 auto;
+	width: 500px;
+}
+
+.dialog .header {
+	background-image: -webkit-gradient(linear, 0% 18%, 0% 52%, from(#FDFDFD), to(#E9E9E9));
+	background-repeat: no-repeat;
+	background-position: left 2px;
+	border: 0;
+	border-bottom: 1px solid #CCC;
+	padding: 5px;
+	border-top-left-radius: 5px;
+	border-top-right-radius: 5px;
+	font-weight: bold;
+	font-size: 1.2em;
+	text-shadow: 0 1px 0 white;
+	position: relative;
+}
+
+.dialog .header .close {
+	position: absolute;
+	right: 5px;
+	background: url(/images/close.png) no-repeat left top;
+	border: 0;
+	width: 16px;
+	height: 16px;
+}
+
+.dialog .header .close > span {
+	display: none;
+}
+
+.dialog .body {
+	background: white;
+	padding: 5px;
+	border-bottom-left-radius: 5px;
+	border-bottom-right-radius: 5px;
+	overflow: hidden;
+}
+
+#add-torrent-dialog #manual_add_input {
+	width: 99%;
+}
+
+#add-torrent-dialog #manual_add_button {
+	float: right;
+	border: 1px solid #AAA;
+}
+
+/* ── Add Torrent Button (top-right + icon) ───────────────────────────── */
+
+#add-torrent {
+	border: 0;
+	background: url(/images/add_torrent.png) no-repeat left top;
+	display: block;
+	float: right;
+	height: 22px;
+	width: 22px;
+	margin: 5px;
+	text-decoration: none;
+}
+
+#add-torrent span {
+	display: none;
+}
+
+/* ── Logo ────────────────────────────────────────────────────────────── */
+
+#logo {
+	margin: 3px;
+}
+
+#logo span {
+	font-weight: bold;
+	font-size: 2em;
+}

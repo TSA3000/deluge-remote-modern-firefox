@@ -1,0 +1,45 @@
+/*
+ * Theme: Nord
+ * Based on the Arctic, north-bluish color palette.
+ * https://www.nordtheme.com/
+ */
+
+[data-theme="nord"] {
+	--theme-bg-primary:        #2e3440;
+	--theme-bg-secondary:      #3b4252;
+	--theme-bg-tertiary:       #434c5e;
+	--theme-bg-overlay:        rgba(0, 0, 0, 0.85);
+
+	--theme-text-primary:      #eceff4;
+	--theme-text-secondary:    #d8dee9;
+	--theme-text-muted:        #4c566a;
+
+	--theme-border-color:      #4c566a;
+	--theme-border-light:      #3b4252;
+
+	--theme-accent:            #88c0d0;
+	--theme-accent-hover:      #8fbcbb;
+	--theme-success:           #a3be8c;
+	--theme-danger:            #bf616a;
+	--theme-warning:           #ebcb8b;
+
+	--theme-input-bg:          #3b4252;
+	--theme-input-border:      #4c566a;
+	--theme-input-focus:       #88c0d0;
+
+	--theme-btn-bg:            #3b4252;
+	--theme-btn-border:        #4c566a;
+	--theme-btn-hover:         #434c5e;
+	--theme-btn-text:          #eceff4;
+
+	--theme-progress-bg:       #434c5e;
+	--theme-progress-download: #88c0d0;
+	--theme-progress-seed:     #a3be8c;
+	--theme-progress-pause:    #4c566a;
+	--theme-progress-queued:   #ebcb8b;
+	--theme-progress-check:    #b48ead;
+	--theme-progress-finished: #8fbcbb;
+	--theme-progress-error:    #bf616a;
+
+	--theme-row-hover:         rgba(136, 192, 208, 0.08);
+}

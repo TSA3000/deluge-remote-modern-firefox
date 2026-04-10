@@ -1,0 +1,27 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Firefox extension ZIP
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          zip -r deluge-remote-modern-v${VERSION}-firefox.zip \
+            manifest.json popup.html options.html PRIVACY.md MIT-LICENSE \
+            js/ css/ images/ _locales/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: deluge-remote-modern-*.zip
+          generate_release_notes: false
+          body: |
+            See [RELEASE_NOTES.md](https://github.com/TSA3000/deluge-remote-modern-firefox/blob/master/RELEASE_NOTES.md) for details.

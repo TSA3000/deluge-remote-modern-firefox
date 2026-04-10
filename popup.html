@@ -1,0 +1,72 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=utf-8">
+		<title>Deluge Remote Modern</title>
+		<link rel="stylesheet" href="css/buttons.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/master.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/popup.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/theme-base.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/themes/dark.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/themes/solarized.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/themes/nord.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/themes/dracula.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/icon-pack-classic.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/icon-pack-modern.css" type="text/css" media="screen" />
+		<script src="js/global_options.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/dom_helper.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/deluge.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/torrent.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/timer.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/torrents.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/debug_log.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/popup.js" type="text/javascript" charset="utf-8"></script>
+	</head>
+	<body>
+		<div id="overlay">
+			<div class="overlay_inner">
+				<span class="error">&nbsp;</span>
+			</div>
+		</div>
+		<div id="add-torrent-dialog" class="dialog">
+			<div class="inner">
+				<div class="header"><span>Add Torrent</span> <a href="#close" class="close"><span>Close</span></a></div>
+				<div class="body">
+					<p>Please enter URL or Magnet link and click add.</p>
+					<input type="text" id="manual_add_input" placeholder="http://"	/>
+					<p><button class="clean-gray" id="manual_add_button">Add</button></p>
+				</div>
+			</div>
+		</div>
+		<a id="deluge_webui_link" target="_blank"><div id="logo"><img src="/images/icons/16.png" alt="Deluge logo small" /><span>Deluge</span></div></a>
+		<a href="#add-torrent" id="add-torrent" title="Add Torrent"><span>Add Torrent</span></a>
+		<div id="global-information">
+			<span class="all-label">Total torrents</span>: <span class="data all">0</span>
+			<span class="downloading-label">Downloading</span>: <span class="data downloading">0</span>
+			<span class="seeding-label">Seeding</span>: <span class="data seeding">0</span>
+			<span class="paused-label">Paused</span>: <span class="data paused">0</span>
+			<span class="queued-label">Queued</span>: <span class="data queued">0</span>
+		</div>
+		<div style="clear: both;"></div>
+		<div id="filters">
+			<span>Sort:</span>
+				<select id="sort">
+					<option value="name">Name</option>
+					<option value="size">Size</option>
+					<option value="progress">Progress %</option>
+					<option value="speed">Speed</option>
+					<option value="eta">ETA</option>
+					<option value="position">Position</option>
+				</select>
+				<input type="checkbox" id="sort_invert" /><label for="sort_invert">Invert</label>
+			<br>
+			<span>State:</span>
+				<select id="filter_state"></select>
+			<span>Tracker:</span>
+				<select id="filter_tracker_host"></select>
+			<span>Label:</span>
+				<select id="filter_label"></select>
+		</div>
+		<div id="torrent_container"></div>
+	</body>
+</html>

@@ -1,0 +1,61 @@
+/* =====================================================================
+   Icon Pack: Classic
+   Original PNG icons from the Deluge project.
+   Active when icon_pack = "classic" (default, no data-icons attr needed).
+   ===================================================================== */
+
+/* ── Pause / Resume ──────────────────────────────────────────────────── */
+html:not([data-icons="modern"]) .table_cell_actions .state {
+	background: url(/images/classic/pause.png) no-repeat top left;
+	background-size: 16px 16px;
+}
+html:not([data-icons="modern"]) .table_cell_actions .state.resume {
+	background: url(/images/classic/start.png) no-repeat top left;
+	background-size: 16px 16px;
+}
+
+/* ── Queue Move ──────────────────────────────────────────────────────── */
+html:not([data-icons="modern"]) .table_cell_actions .move_up {
+	background: url(/images/classic/up.png) no-repeat left top;
+	background-size: 16px 16px;
+}
+html:not([data-icons="modern"]) .table_cell_actions .move_down {
+	background: url(/images/classic/down.png) no-repeat left top;
+	background-size: 16px 16px;
+}
+
+/* ── Auto-Managed Toggle ─────────────────────────────────────────────── */
+html:not([data-icons="modern"]) .table_cell_actions .managed {
+	background: url(/images/classic/manage_active.png) no-repeat top left;
+	background-size: 16px 16px;
+}
+html:not([data-icons="modern"]) .table_cell_actions .unmanaged {
+	background: url(/images/classic/manage.png) no-repeat top left;
+	background-size: 16px 16px;
+}
+
+/* ── Force Recheck ───────────────────────────────────────────────────── */
+html:not([data-icons="modern"]) .table_cell_actions .force_recheck {
+	background: url(/images/classic/recheck.png) no-repeat top left;
+	background-size: 16px 16px;
+}
+
+/* ── Delete ───────────────────────────────────────────────────────────── */
+html:not([data-icons="modern"]) .table_cell_actions .delete {
+	background: url(/images/classic/remove.png) no-repeat left top;
+	background-size: 16px 16px;
+}
+
+/* ── Delete Options ──────────────────────────────────────────────────── */
+html:not([data-icons="modern"]) .delete-options .rm_cancel {
+	background: url(/images/classic/cancel.png) no-repeat left top;
+	background-size: 16px 16px;
+}
+html:not([data-icons="modern"]) .delete-options .rm_torrent_data {
+	background: url(/images/classic/trash.png) no-repeat left top;
+	background-size: 16px 16px;
+}
+html:not([data-icons="modern"]) .delete-options .rm_torrent {
+	background: url(/images/classic/torrent_file.png) no-repeat left top;
+	background-size: 16px 16px;
+}

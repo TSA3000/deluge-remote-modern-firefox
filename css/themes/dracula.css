@@ -1,0 +1,45 @@
+/*
+ * Theme: Dracula
+ * Based on the popular Dracula color scheme.
+ * https://draculatheme.com/
+ */
+
+[data-theme="dracula"] {
+	--theme-bg-primary:        #282a36;
+	--theme-bg-secondary:      #44475a;
+	--theme-bg-tertiary:       #383a4a;
+	--theme-bg-overlay:        rgba(0, 0, 0, 0.85);
+
+	--theme-text-primary:      #f8f8f2;
+	--theme-text-secondary:    #bd93f9;
+	--theme-text-muted:        #6272a4;
+
+	--theme-border-color:      #44475a;
+	--theme-border-light:      #383a4a;
+
+	--theme-accent:            #bd93f9;
+	--theme-accent-hover:      #ff79c6;
+	--theme-success:           #50fa7b;
+	--theme-danger:            #ff5555;
+	--theme-warning:           #f1fa8c;
+
+	--theme-input-bg:          #44475a;
+	--theme-input-border:      #6272a4;
+	--theme-input-focus:       #bd93f9;
+
+	--theme-btn-bg:            #44475a;
+	--theme-btn-border:        #6272a4;
+	--theme-btn-hover:         #383a4a;
+	--theme-btn-text:          #f8f8f2;
+
+	--theme-progress-bg:       #44475a;
+	--theme-progress-download: #8be9fd;
+	--theme-progress-seed:     #50fa7b;
+	--theme-progress-pause:    #6272a4;
+	--theme-progress-queued:   #f1fa8c;
+	--theme-progress-check:    #bd93f9;
+	--theme-progress-finished: #50fa7b;
+	--theme-progress-error:    #ff5555;
+
+	--theme-row-hover:         rgba(189, 147, 249, 0.08);
+}

@@ -1,0 +1,485 @@
+/*
+ * Theme Base — All themed selectors using CSS custom properties.
+ *
+ * This file contains NO color values. It only applies variables set by theme files.
+ * Themes set variables on [data-theme="themename"] or via @media prefers-color-scheme.
+ *
+ * To add a new theme:
+ *   1. Create css/themes/mytheme.css with variables under [data-theme="mytheme"]
+ *   2. Add <link> to popup.html and options.html
+ *   3. Add <option value="mytheme">My Theme</option> to the theme dropdown in options.html
+ *   4. That's it — this file handles the rest.
+ */
+
+/* =====================================================================
+   THEMED SELECTORS — applied when any data-theme is set (not light)
+   Uses :is() to match any theme attribute except light
+   ===================================================================== */
+
+/* ── Body & Content ──────────────────────────────────────────────────── */
+html:not([data-theme="light"])[data-theme],
+html:not([data-theme="light"])[data-theme] body {
+	background-color: var(--theme-bg-primary) !important;
+	color: var(--theme-text-primary) !important;
+}
+
+[data-theme]:not([data-theme="light"]) #content {
+	background-color: var(--theme-bg-primary) !important;
+	color: var(--theme-text-primary) !important;
+	border-color: var(--theme-border-color) !important;
+}
+
+/* ── Header & Chrome ─────────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) #header,
+[data-theme]:not([data-theme="light"]) .chrome-header {
+	background-color: var(--theme-bg-secondary) !important;
+	background-image: none !important;
+	border-top-color: var(--theme-border-color) !important;
+	border-bottom-color: var(--theme-border-color) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .chrome-header h2 {
+	color: var(--theme-text-primary) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .chrome-sub-header,
+[data-theme]:not([data-theme="light"]) .chrome-sub-header p {
+	background-color: var(--theme-bg-primary) !important;
+	color: var(--theme-text-secondary) !important;
+	border-bottom-color: var(--theme-border-color) !important;
+}
+
+/* ── Overlay ─────────────────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) #overlay {
+	background-color: var(--theme-bg-overlay) !important;
+}
+
+[data-theme]:not([data-theme="light"]) #overlay .overlay_inner {
+	background-color: var(--theme-bg-secondary) !important;
+	color: var(--theme-text-primary) !important;
+	border-color: var(--theme-border-color) !important;
+}
+
+/* ── Form Elements ───────────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) input[type="text"],
+[data-theme]:not([data-theme="light"]) input[type="password"],
+[data-theme]:not([data-theme="light"]) input:not([type]),
+[data-theme]:not([data-theme="light"]) select,
+[data-theme]:not([data-theme="light"]) textarea {
+	background-color: var(--theme-input-bg) !important;
+	color: var(--theme-text-primary) !important;
+	border-color: var(--theme-input-border) !important;
+}
+
+[data-theme]:not([data-theme="light"]) input:focus,
+[data-theme]:not([data-theme="light"]) select:focus,
+[data-theme]:not([data-theme="light"]) textarea:focus {
+	border-color: var(--theme-input-focus) !important;
+	outline-color: var(--theme-input-focus) !important;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) button,
+[data-theme]:not([data-theme="light"]) .clean-gray {
+	background-color: var(--theme-btn-bg) !important;
+	background-image: none !important;
+	color: var(--theme-btn-text) !important;
+	border-color: var(--theme-btn-border) !important;
+	text-shadow: none !important;
+}
+
+[data-theme]:not([data-theme="light"]) button:hover,
+[data-theme]:not([data-theme="light"]) .clean-gray:hover {
+	background-color: var(--theme-btn-hover) !important;
+	background-image: none !important;
+}
+
+/* ── Fieldsets & Forms ───────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) fieldset {
+	border-color: var(--theme-border-color) !important;
+}
+
+[data-theme]:not([data-theme="light"]) legend {
+	color: var(--theme-text-primary) !important;
+}
+
+[data-theme]:not([data-theme="light"]) label {
+	color: var(--theme-text-primary) !important;
+}
+
+[data-theme]:not([data-theme="light"]) label span {
+	color: var(--theme-text-muted) !important;
+}
+
+/* ── Links ───────────────────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) a {
+	color: var(--theme-accent) !important;
+}
+
+[data-theme]:not([data-theme="light"]) a:hover {
+	color: var(--theme-accent-hover) !important;
+}
+
+/* ── Logo Bar ────────────────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) #logo {
+	background-color: var(--theme-bg-secondary) !important;
+	border-bottom-color: var(--theme-border-color) !important;
+}
+
+[data-theme]:not([data-theme="light"]) #logo span {
+	color: var(--theme-text-primary) !important;
+}
+
+/* ── Global Information ──────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) #global-information {
+	background-color: var(--theme-bg-secondary) !important;
+	color: var(--theme-text-secondary) !important;
+	border-color: var(--theme-border-color) !important;
+}
+
+[data-theme]:not([data-theme="light"]) #global-information .data {
+	color: var(--theme-text-primary) !important;
+}
+
+/* ── Filters ─────────────────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) #filters {
+	background-color: var(--theme-bg-secondary) !important;
+	background-image: none !important;
+	color: var(--theme-text-secondary) !important;
+	border-color: var(--theme-border-color) !important;
+}
+
+[data-theme]:not([data-theme="light"]) #filters span,
+[data-theme]:not([data-theme="light"]) #filters label {
+	color: var(--theme-text-secondary) !important;
+}
+
+/* ── Torrent Container & Rows ────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) #torrent_container {
+	border-color: var(--theme-border-color) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .torrent_row {
+	background-color: var(--theme-bg-primary) !important;
+	border-top-color: var(--theme-border-color) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .torrent_row:nth-child(even) {
+	background-color: var(--theme-bg-secondary) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .torrent_row:hover {
+	background-color: var(--theme-row-hover) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .torrent_row table {
+	color: var(--theme-text-primary) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .table_cell_name {
+	color: var(--theme-text-primary) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .table_cell_position {
+	color: var(--theme-text-muted) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .table_cell_size,
+[data-theme]:not([data-theme="light"]) .table_cell_eta,
+[data-theme]:not([data-theme="light"]) .table_cell_ratio,
+[data-theme]:not([data-theme="light"]) .table_cell_peers,
+[data-theme]:not([data-theme="light"]) .table_cell_seeds,
+[data-theme]:not([data-theme="light"]) .table_cell_label,
+[data-theme]:not([data-theme="light"]) .table_cell_speed {
+	color: var(--theme-text-secondary) !important;
+}
+
+/* ── Progress Bar ────────────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) .progress_bar {
+	background-color: var(--theme-progress-bg) !important;
+	background-image: none !important;
+	border-color: var(--theme-border-color) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .progress_bar span {
+	color: #ffffff !important;
+}
+
+[data-theme]:not([data-theme="light"]) .progress_bar .inner.Downloading {
+	background: var(--theme-progress-download) !important;
+	border-color: var(--theme-progress-download) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .progress_bar .inner.Seeding {
+	background: var(--theme-progress-seed) !important;
+	border-color: var(--theme-progress-seed) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .progress_bar .inner.Paused {
+	background: var(--theme-progress-pause) !important;
+	border-color: var(--theme-progress-pause) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .progress_bar .inner.Queued {
+	background: var(--theme-progress-queued) !important;
+	border-color: var(--theme-progress-queued) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .progress_bar .inner.Checking {
+	background: var(--theme-progress-check) !important;
+	border-color: var(--theme-progress-check) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .progress_bar .inner.Error,
+[data-theme]:not([data-theme="light"]) .progress_bar .inner.Error.finished {
+	background: var(--theme-progress-error) !important;
+	border-color: var(--theme-progress-error) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .progress_bar .inner.finished:not(.Error):not(.Paused):not(.Queued) {
+	background: var(--theme-progress-finished) !important;
+	border-color: var(--theme-progress-finished) !important;
+}
+
+/* ── Add Torrent Dialog ──────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) #add-torrent-dialog {
+	background-color: var(--theme-bg-overlay) !important;
+}
+
+[data-theme]:not([data-theme="light"]) #add-torrent-dialog .inner {
+	background-color: var(--theme-bg-primary) !important;
+	border-color: var(--theme-border-color) !important;
+}
+
+[data-theme]:not([data-theme="light"]) #add-torrent-dialog .header {
+	background-color: var(--theme-bg-secondary) !important;
+	background-image: none !important;
+	color: var(--theme-text-primary) !important;
+	border-bottom-color: var(--theme-border-color) !important;
+}
+
+[data-theme]:not([data-theme="light"]) #add-torrent-dialog .body {
+	background-color: var(--theme-bg-primary) !important;
+	color: var(--theme-text-primary) !important;
+}
+
+[data-theme]:not([data-theme="light"]) #add-torrent-dialog .body p {
+	color: var(--theme-text-secondary) !important;
+}
+
+/* ── Status & Label ──────────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) #status-message {
+	color: var(--theme-success) !important;
+}
+
+[data-theme]:not([data-theme="light"]) .label_select {
+	background-color: var(--theme-input-bg) !important;
+	color: var(--theme-text-primary) !important;
+	border-color: var(--theme-input-border) !important;
+	border-radius: 3px;
+}
+
+/* ── Tables ──────────────────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) table {
+	color: var(--theme-text-primary) !important;
+}
+
+[data-theme]:not([data-theme="light"]) td {
+	border-color: var(--theme-border-light) !important;
+}
+
+
+/* =====================================================================
+   SYSTEM PREFERENCE — auto dark when no manual theme is set
+   ===================================================================== */
+@media (prefers-color-scheme: dark) {
+	html:not([data-theme]) {
+		--theme-bg-primary:        var(--theme-auto-bg-primary);
+		--theme-bg-secondary:      var(--theme-auto-bg-secondary);
+		--theme-bg-tertiary:       var(--theme-auto-bg-tertiary);
+		--theme-bg-overlay:        var(--theme-auto-bg-overlay);
+		--theme-text-primary:      var(--theme-auto-text-primary);
+		--theme-text-secondary:    var(--theme-auto-text-secondary);
+		--theme-text-muted:        var(--theme-auto-text-muted);
+		--theme-border-color:      var(--theme-auto-border-color);
+		--theme-border-light:      var(--theme-auto-border-light);
+		--theme-accent:            var(--theme-auto-accent);
+		--theme-accent-hover:      var(--theme-auto-accent-hover);
+		--theme-success:           var(--theme-auto-success);
+		--theme-danger:            var(--theme-auto-danger);
+		--theme-warning:           var(--theme-auto-warning);
+		--theme-input-bg:          var(--theme-auto-input-bg);
+		--theme-input-border:      var(--theme-auto-input-border);
+		--theme-input-focus:       var(--theme-auto-input-focus);
+		--theme-btn-bg:            var(--theme-auto-btn-bg);
+		--theme-btn-border:        var(--theme-auto-btn-border);
+		--theme-btn-hover:         var(--theme-auto-btn-hover);
+		--theme-btn-text:          var(--theme-auto-btn-text);
+		--theme-progress-bg:       var(--theme-auto-progress-bg);
+		--theme-progress-download: var(--theme-auto-progress-download);
+		--theme-progress-seed:     var(--theme-auto-progress-seed);
+		--theme-progress-pause:    var(--theme-auto-progress-pause);
+		--theme-progress-queued:   var(--theme-auto-progress-queued);
+		--theme-progress-check:    var(--theme-auto-progress-check);
+		--theme-progress-finished: var(--theme-auto-progress-finished);
+		--theme-progress-error:    var(--theme-auto-progress-error);
+		--theme-row-hover:         var(--theme-auto-row-hover);
+	}
+
+	/* Apply themed styles when system preference is dark and no manual theme */
+	html:not([data-theme]),
+	html:not([data-theme]) body {
+		background-color: var(--theme-bg-primary) !important;
+		color: var(--theme-text-primary) !important;
+	}
+
+	html:not([data-theme]) #content {
+		background-color: var(--theme-bg-primary) !important;
+		color: var(--theme-text-primary) !important;
+		border-color: var(--theme-border-color) !important;
+	}
+
+	html:not([data-theme]) #header,
+	html:not([data-theme]) .chrome-header {
+		background-color: var(--theme-bg-secondary) !important;
+		background-image: none !important;
+		border-top-color: var(--theme-border-color) !important;
+		border-bottom-color: var(--theme-border-color) !important;
+	}
+
+	html:not([data-theme]) .chrome-header h2 { color: var(--theme-text-primary) !important; }
+
+	html:not([data-theme]) .chrome-sub-header,
+	html:not([data-theme]) .chrome-sub-header p {
+		background-color: var(--theme-bg-primary) !important;
+		color: var(--theme-text-secondary) !important;
+		border-bottom-color: var(--theme-border-color) !important;
+	}
+
+	html:not([data-theme]) #overlay { background-color: var(--theme-bg-overlay) !important; }
+	html:not([data-theme]) #overlay .overlay_inner {
+		background-color: var(--theme-bg-secondary) !important;
+		color: var(--theme-text-primary) !important;
+		border-color: var(--theme-border-color) !important;
+	}
+
+	html:not([data-theme]) input[type="text"],
+	html:not([data-theme]) input[type="password"],
+	html:not([data-theme]) input:not([type]),
+	html:not([data-theme]) select,
+	html:not([data-theme]) textarea {
+		background-color: var(--theme-input-bg) !important;
+		color: var(--theme-text-primary) !important;
+		border-color: var(--theme-input-border) !important;
+	}
+
+	html:not([data-theme]) input:focus,
+	html:not([data-theme]) select:focus,
+	html:not([data-theme]) textarea:focus {
+		border-color: var(--theme-input-focus) !important;
+		outline-color: var(--theme-input-focus) !important;
+	}
+
+	html:not([data-theme]) button,
+	html:not([data-theme]) .clean-gray {
+		background-color: var(--theme-btn-bg) !important;
+		background-image: none !important;
+		color: var(--theme-btn-text) !important;
+		border-color: var(--theme-btn-border) !important;
+		text-shadow: none !important;
+	}
+
+	html:not([data-theme]) button:hover,
+	html:not([data-theme]) .clean-gray:hover {
+		background-color: var(--theme-btn-hover) !important;
+		background-image: none !important;
+	}
+
+	html:not([data-theme]) fieldset { border-color: var(--theme-border-color) !important; }
+	html:not([data-theme]) legend { color: var(--theme-text-primary) !important; }
+	html:not([data-theme]) label { color: var(--theme-text-primary) !important; }
+	html:not([data-theme]) label span { color: var(--theme-text-muted) !important; }
+	html:not([data-theme]) a { color: var(--theme-accent) !important; }
+	html:not([data-theme]) a:hover { color: var(--theme-accent-hover) !important; }
+
+	html:not([data-theme]) #logo {
+		background-color: var(--theme-bg-secondary) !important;
+		border-bottom-color: var(--theme-border-color) !important;
+	}
+	html:not([data-theme]) #logo span { color: var(--theme-text-primary) !important; }
+
+	html:not([data-theme]) #global-information {
+		background-color: var(--theme-bg-secondary) !important;
+		color: var(--theme-text-secondary) !important;
+		border-color: var(--theme-border-color) !important;
+	}
+	html:not([data-theme]) #global-information .data { color: var(--theme-text-primary) !important; }
+
+	html:not([data-theme]) #filters {
+		background-color: var(--theme-bg-secondary) !important;
+		background-image: none !important;
+		color: var(--theme-text-secondary) !important;
+		border-color: var(--theme-border-color) !important;
+	}
+	html:not([data-theme]) #filters span,
+	html:not([data-theme]) #filters label { color: var(--theme-text-secondary) !important; }
+
+	html:not([data-theme]) #torrent_container { border-color: var(--theme-border-color) !important; }
+
+	html:not([data-theme]) .torrent_row {
+		background-color: var(--theme-bg-primary) !important;
+		border-top-color: var(--theme-border-color) !important;
+	}
+	html:not([data-theme]) .torrent_row:nth-child(even) { background-color: var(--theme-bg-secondary) !important; }
+	html:not([data-theme]) .torrent_row:hover { background-color: var(--theme-row-hover) !important; }
+	html:not([data-theme]) .torrent_row table { color: var(--theme-text-primary) !important; }
+	html:not([data-theme]) .table_cell_name { color: var(--theme-text-primary) !important; }
+	html:not([data-theme]) .table_cell_position { color: var(--theme-text-muted) !important; }
+
+	html:not([data-theme]) .table_cell_size,
+	html:not([data-theme]) .table_cell_eta,
+	html:not([data-theme]) .table_cell_ratio,
+	html:not([data-theme]) .table_cell_peers,
+	html:not([data-theme]) .table_cell_seeds,
+	html:not([data-theme]) .table_cell_label,
+	html:not([data-theme]) .table_cell_speed { color: var(--theme-text-secondary) !important; }
+
+	html:not([data-theme]) .progress_bar {
+		background-color: var(--theme-progress-bg) !important;
+		background-image: none !important;
+		border-color: var(--theme-border-color) !important;
+	}
+	html:not([data-theme]) .progress_bar span { color: #ffffff !important; }
+	html:not([data-theme]) .progress_bar .inner.Downloading { background: var(--theme-progress-download) !important; border-color: var(--theme-progress-download) !important; }
+	html:not([data-theme]) .progress_bar .inner.Seeding { background: var(--theme-progress-seed) !important; border-color: var(--theme-progress-seed) !important; }
+	html:not([data-theme]) .progress_bar .inner.Paused { background: var(--theme-progress-pause) !important; border-color: var(--theme-progress-pause) !important; }
+	html:not([data-theme]) .progress_bar .inner.Queued { background: var(--theme-progress-queued) !important; border-color: var(--theme-progress-queued) !important; }
+	html:not([data-theme]) .progress_bar .inner.Checking { background: var(--theme-progress-check) !important; border-color: var(--theme-progress-check) !important; }
+	html:not([data-theme]) .progress_bar .inner.Error,
+	html:not([data-theme]) .progress_bar .inner.Error.finished { background: var(--theme-progress-error) !important; border-color: var(--theme-progress-error) !important; }
+	html:not([data-theme]) .progress_bar .inner.finished:not(.Error):not(.Paused):not(.Queued) { background: var(--theme-progress-finished) !important; border-color: var(--theme-progress-finished) !important; }
+
+	html:not([data-theme]) #add-torrent-dialog { background-color: var(--theme-bg-overlay) !important; }
+	html:not([data-theme]) #add-torrent-dialog .inner { background-color: var(--theme-bg-primary) !important; border-color: var(--theme-border-color) !important; }
+	html:not([data-theme]) #add-torrent-dialog .header { background-color: var(--theme-bg-secondary) !important; background-image: none !important; color: var(--theme-text-primary) !important; border-bottom-color: var(--theme-border-color) !important; }
+	html:not([data-theme]) #add-torrent-dialog .body { background-color: var(--theme-bg-primary) !important; color: var(--theme-text-primary) !important; }
+	html:not([data-theme]) #add-torrent-dialog .body p { color: var(--theme-text-secondary) !important; }
+	html:not([data-theme]) #status-message { color: var(--theme-success) !important; }
+	html:not([data-theme]) .label_select { background-color: var(--theme-input-bg) !important; color: var(--theme-text-primary) !important; border-color: var(--theme-input-border) !important; border-radius: 3px; }
+	html:not([data-theme]) table { color: var(--theme-text-primary) !important; }
+	html:not([data-theme]) td { border-color: var(--theme-border-light) !important; }
+}
+
+/* ── Label & Table shared styles (always active) ─────────────────────── */
+.table_cell_label {
+	text-align: right;
+	white-space: nowrap;
+}
+
+.label_select {
+	font-size: 9px;
+	padding: 1px 2px;
+	vertical-align: middle;
+	max-width: 80px;
+	cursor: pointer;
+}
