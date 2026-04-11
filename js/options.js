@@ -8,19 +8,19 @@ function saveOptions(callback) {
 
 	function doSave(passwordValue) {
 		var settings = {
-			"address_protocol":   document.getElementById("address_protocol").value,
-			"address_ip":         document.getElementById("address_ip").value,
-			"address_port":       document.getElementById("address_port").value,
-			"address_base":       document.getElementById("address_base").value,
-			"handle_torrents":    document.getElementById("handle_torrents").checked,
-			"handle_magnets":     document.getElementById("handle_magnets").checked,
-			"context_menu":       document.getElementById("context_menu").checked,
-			"badge_timeout":      parseInt(document.getElementById("badge_timeout").value),
-			"refresh_interval":   parseInt(document.getElementById("refresh_interval").value),
-			"debug_mode":         document.getElementById("debug_mode").checked,
-			"dark_mode":          document.getElementById("dark_mode").value,
-			"icon_pack":          document.getElementById("icon_pack").value,
-			"version":            chrome.runtime.getManifest().version
+			"address_protocol": document.getElementById("address_protocol").value,
+			"address_ip": document.getElementById("address_ip").value,
+			"address_port": document.getElementById("address_port").value,
+			"address_base": document.getElementById("address_base").value,
+			"handle_torrents": document.getElementById("handle_torrents").checked,
+			"handle_magnets": document.getElementById("handle_magnets").checked,
+			"context_menu": document.getElementById("context_menu").checked,
+			"badge_timeout": parseInt(document.getElementById("badge_timeout").value),
+			"refresh_interval": parseInt(document.getElementById("refresh_interval").value),
+			"debug_mode": document.getElementById("debug_mode").checked,
+			"dark_mode": document.getElementById("dark_mode").value,
+			"icon_pack": document.getElementById("icon_pack").value,
+			"version": chrome.runtime.getManifest().version
 		};
 
 		// Only include password if it changed
@@ -53,7 +53,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		saveOptions();
 	});
 	document.querySelector(".buttons .apply").addEventListener("click", function () {
-		saveOptions(function() { window.close(); });
+		saveOptions(function () { window.close(); });
 	});
 	document.querySelector(".buttons .cancel").addEventListener("click", function () {
 		window.close();
@@ -68,6 +68,38 @@ document.addEventListener("DOMContentLoaded", function () {
 	// Live preview: icon pack change
 	document.getElementById("icon_pack").addEventListener("change", function () {
 		applyIconPack(this.value);
+	});
+	// Test connection button
+	document.getElementById("test_connection").addEventListener("click", function () {
+		var btn = this;
+		var result = document.getElementById("test_result");
+		btn.disabled = true;
+		result.textContent = "Testing...";
+		result.style.color = "#888";
+
+		saveOptions(function () {
+			chrome.runtime.sendMessage({ method: "check_status" }, function (response) {
+				btn.disabled = false;
+				if (chrome.runtime.lastError) {
+					result.textContent = "✗ Service worker not responding";
+					result.style.color = "#e74c3c";
+					return;
+				}
+				if (response && response.connected) {
+					result.textContent = "✓ Connected!";
+					result.style.color = "#27ae60";
+				} else if (response && response.reason === "auth_failed") {
+					result.textContent = "✗ Login failed — check password";
+					result.style.color = "#e74c3c";
+				} else if (response && response.reason === "network_error") {
+					result.textContent = "✗ Cannot reach server — check address";
+					result.style.color = "#e74c3c";
+				} else {
+					result.textContent = "✗ Connection failed";
+					result.style.color = "#e74c3c";
+				}
+			});
+		});
 	});
 });
 

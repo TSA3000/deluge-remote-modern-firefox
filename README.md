@@ -99,6 +99,11 @@ All JavaScript is identical — Firefox supports the `chrome.*` namespace.
 
 ## Version History
 
+### v1.1.0 — Test Connection Button (2026-04-11)
+
+- Added "Test Connection" button to Options page — saves settings and verifies connectivity
+- Shows clear result: connected, login failed, or server unreachable
+
 ### v1.0.0 — Firefox Port (2026-04-11)
 
 - Initial Firefox release, ported from Chrome v2.3.1
