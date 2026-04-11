@@ -99,6 +99,11 @@ All JavaScript is identical — Firefox supports the `chrome.*` namespace.
 
 ## Version History
 
+### v1.1.2 — innerHTML Security Fixes (2026-04-11)
+
+- Replaced all innerHTML usage with safe DOM methods (createElement, textContent, DOMParser)
+- Eliminates all AMO linting warnings for unsafe content assignment
+
 ### v1.1.0 — Test Connection Button (2026-04-11)
 
 - Added "Test Connection" button to Options page — saves settings and verifies connectivity

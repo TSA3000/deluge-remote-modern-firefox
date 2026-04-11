@@ -145,7 +145,13 @@ document.addEventListener("DOMContentLoaded", function () {
 			labelValues.push({ id: torrent.id, label: torrent.label || "" });
 		}
 
-		torrentContainer.innerHTML = htmlParts.join("");
+		// Use DOMParser to safely convert string to nodes
+		var parser = new DOMParser();
+		var doc = parser.parseFromString(htmlParts.join(""), 'text/html');
+		torrentContainer.textContent = "";
+		while (doc.body.firstChild) {
+			torrentContainer.appendChild(doc.body.firstChild);
+		}
 
 		for (var j = 0, jlen = labelValues.length; j < jlen; j++) {
 			var sel = torrentContainer.querySelector('.label_select[data-torrent-id="' + labelValues[j].id + '"]');
@@ -259,10 +265,22 @@ document.addEventListener("DOMContentLoaded", function () {
 		DomHelper.fadeOut(actions, 200, function () {
 			var div = document.createElement("div");
 			div.className = "delete-options";
-			div.innerHTML =
-				'<a class="rm_cancel" title="Cancel"></a>' +
-				'<a class="rm_torrent_data" title="Delete with data"></a>' +
-				'<a class="rm_torrent" title="Remove torrent only"></a>';
+
+			var aCancel = document.createElement("a");
+			aCancel.className = "rm_cancel";
+			aCancel.title = "Cancel";
+
+			var aData = document.createElement("a");
+			aData.className = "rm_torrent_data";
+			aData.title = "Delete with data";
+
+			var aTorrent = document.createElement("a");
+			aTorrent.className = "rm_torrent";
+			aTorrent.title = "Remove torrent only";
+
+			div.appendChild(aCancel);
+			div.appendChild(aData);
+			div.appendChild(aTorrent);
 			td.appendChild(div);
 			DomHelper.hide(td);
 			DomHelper.fadeIn(td, 200);
@@ -411,7 +429,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				var span = overlay.querySelector(".overlay_inner span");
 				if (span) {
 					span.className = "error";
-					span.innerHTML = message;
+					span.textContent = message;
 				}
 				DomHelper.show(overlay);
 			}
@@ -434,7 +452,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		var span = overlay.querySelector(".overlay_inner span");
 		if (span) {
 			span.classList.add("error");
-			span.innerHTML = chrome.i18n.getMessage("error_unauthenticated");
+			span.textContent = chrome.i18n.getMessage("error_unauthenticated");
 		}
 		DomHelper.show(overlay);
 	}

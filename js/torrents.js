@@ -82,16 +82,17 @@ var Torrents = (function () {
 					if (!filterEl) continue;
 
 					var options = response.filters[id];
-					var html = "";
+					filterEl.textContent = "";
 
 					for (var j = 0, jlen = options.length; j < jlen; j++) {
 						var text = options[j][0];
 						text = (text === "" ? "<blank>" : text);
 						text += " (" + options[j][1] + ")";
-						html += '<option value="' + options[j][0] + '">' + text + '</option>';
+						var opt = document.createElement("option");
+						opt.value = options[j][0];
+						opt.textContent = text;
+						filterEl.appendChild(opt);
 					}
-
-					filterEl.innerHTML = html;
 					filterEl.value = localStorage["filter_" + id] || "All";
 				}
 			}

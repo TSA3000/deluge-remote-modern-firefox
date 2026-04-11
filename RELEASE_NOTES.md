@@ -2,12 +2,35 @@
 
 ---
 
+## v1.1.2 — innerHTML Security Fixes
+*2026-04-11*
+
+### Improvements
+
+- **Removed all `innerHTML` usage** — Replaced every `innerHTML` assignment with safe DOM methods (`createElement`, `textContent`, `DOMParser`) to eliminate AMO linting warnings and prevent potential XSS vectors:
+  - `popup.js` — Torrent list rendering now uses `DOMParser` to safely parse HTML strings; delete-options menu built with `createElement`; `span.innerHTML` → `span.textContent`
+  - `options.js` — Status messages built with `createTextNode` + `createElement("br")` instead of `join("<br>")`
+  - `torrents.js` — Filter dropdowns built with `createElement("option")` + `appendChild` instead of string concatenation
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `js/popup.js` | DOMParser for torrent rows, createElement for delete menu, textContent for error messages |
+| `js/options.js` | DOM methods for status messages |
+| `js/torrents.js` | createElement for filter dropdown options |
+| `manifest.json` | Version bumped to `1.1.2` |
+| `RELEASE_NOTES.md` | This entry |
+| `README.md` | Version history updated |
+
+---
+
 ## v1.1.0 — Test Connection Button
 *2026-04-11*
 
 ### New Features
 
-- **Test Connection button** — Added a "Test Connection" button to the Options page under Basic Setup. Saves current settings, then checks connectivity to the Deluge Web UI and displays the result: connected, login failed, or unreachable. No more guessing whether the address/password is correct.
+- **Test Connection button** — Added a "Test Connection" button to the Options page under Basic Setup. Saves current settings, then checks connectivity to the Deluge Web UI and displays the result: connected, login failed, or unreachable.
 
 ### Files Changed
 
@@ -17,8 +40,6 @@
 | `js/options.js` | Test handler: saves settings, sends `check_status`, shows result |
 | `css/options.css` | Styling for test button and result text |
 | `manifest.json` | Version bumped to `1.1.0` |
-| `RELEASE_NOTES.md` | This entry |
-| `README.md` | Version history updated |
 
 ---
 
