@@ -2,6 +2,23 @@
 
 ---
 
+## v1.2.0 — Firefox 140 Minimum Version
+*2026-04-11*
+
+### Changes
+
+- **Minimum Firefox version raised to 140** — `data_collection_permissions` (required by AMO for all new extensions) was introduced in Firefox 140. Previous `strict_min_version` of 128 caused linting warnings. Firefox auto-updates so virtually all users are already on 140+.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `manifest.json` | `strict_min_version` changed from `128.0` to `140.0`, version bumped to `1.2.0` |
+| `RELEASE_NOTES.md` | This entry |
+| `README.md` | Version history and requirements updated |
+
+---
+
 ## v1.1.2 — innerHTML Security Fixes
 *2026-04-11*
 

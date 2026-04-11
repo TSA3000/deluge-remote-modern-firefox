@@ -1,64 +1,51 @@
 {
-	"name": "Deluge Remote Modern",
-	"description": "Control your Deluge BitTorrent client directly from Firefox. Secure, fast, and fully open-source.",
-	"version": "1.1.2",
-	"icons": {
-		"128": "images/icons/128.png",
-		"64": "images/icons/64.png",
-		"32": "images/icons/32.png",
-		"16": "images/icons/16.png"
-	},
-	"browser_specific_settings": {
-		"gecko": {
-			"id": "deluge-remote-modern@tsa3000",
-			"strict_min_version": "128.0",
-			"data_collection_permissions": {
-				"required": ["none"]
-			}
-		}
-	},
-	"web_accessible_resources": [
-		{
-			"resources": [
-				"images/icons/16.png",
-				"images/icons/16_green.png"
-			],
-			"matches": ["<all_urls>"]
-		}
-	],
-	"default_locale": "en",
-	"background": {
-		"scripts": ["js/background.js"]
-	},
-	"options_ui": {
-		"page": "options.html",
-		"open_in_tab": true
-	},
-	"action": {
-		"default_icon": "images/icons/deluge.png",
-		"default_title": "__MSG_browser_title_disabled__",
-		"default_popup": "popup.html"
-	},
-	"content_scripts": [
-		{
-			"matches": [
-				"http://*/*",
-				"https://*/*"
-			],
-			"js": [
-				"js/global_options.js",
-				"js/debug_log.js",
-				"js/add_torrent.js"
-			]
-		}
-	],
-	"permissions": [
-		"contextMenus",
-		"storage"
-	],
-	"host_permissions": [
-		"http://*/*",
-		"https://*/*"
-	],
-	"manifest_version": 3
+  "name": "Deluge Remote Modern",
+  "description": "Control your Deluge BitTorrent client directly from Firefox. Secure, fast, and fully open-source.",
+  "version": "1.2.0",
+  "icons": {
+    "128": "images/icons/128.png",
+    "64": "images/icons/64.png",
+    "32": "images/icons/32.png",
+    "16": "images/icons/16.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "deluge-remote-modern@tsa3000",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["images/icons/16.png", "images/icons/16_green.png"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "default_locale": "en",
+  "background": {
+    "scripts": ["js/background.js"]
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "action": {
+    "default_icon": "images/icons/deluge.png",
+    "default_title": "__MSG_browser_title_disabled__",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["js/global_options.js", "js/debug_log.js", "js/add_torrent.js"]
+    }
+  ],
+  "permissions": ["contextMenus", "storage"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "manifest_version": 3
 }

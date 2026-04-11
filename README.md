@@ -27,7 +27,7 @@ A lightweight, open-source Firefox extension to manage your [Deluge](https://del
 
 ## Requirements
 
-- Firefox 128 or newer (MV3 background scripts support)
+- Firefox 140 or newer (MV3 background scripts support)
 
 ---
 
@@ -91,13 +91,17 @@ SVG glyphs rendered via CSS `mask-image` with theme-aware semantic colors.
 | `manifest.json` | `service_worker` | `background.scripts` |
 | Options page | `options_page` | `options_ui` with `open_in_tab` |
 | Gecko ID | not needed | `deluge-remote-modern@tsa3000` |
-| Min version | Chrome 88+ | Firefox 128+ |
+| Min version | Chrome 88+ | Firefox 140+ |
 
 All JavaScript is identical — Firefox supports the `chrome.*` namespace.
 
 ---
 
 ## Version History
+
+### v1.2.0 — Firefox 140 Minimum Version (2026-04-11)
+
+- Raised minimum Firefox version from 128 to 140 (required for data_collection_permissions)
 
 ### v1.1.2 — innerHTML Security Fixes (2026-04-11)
 
@@ -114,7 +118,7 @@ All JavaScript is identical — Firefox supports the `chrome.*` namespace.
 - Initial Firefox release, ported from Chrome v2.3.1
 - All features included: themes, icon packs, labels, encryption, variable refresh
 - Firefox MV3 manifest with `background.scripts` and `options_ui`
-- Requires Firefox 128+
+- Requires Firefox 140+
 
 ---
 
