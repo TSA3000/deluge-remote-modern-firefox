@@ -2,7 +2,7 @@
 
 [![GitHub release](https://img.shields.io/github/release/TSA3000/deluge-remote-modern-firefox.svg)](https://github.com/TSA3000/deluge-remote-modern-firefox/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](MIT-LICENSE)
-[![Firefox Add-ons](https://img.shields.io/badge/Firefox-Add--ons-FF7139?logo=firefox-browser&logoColor=white)](https://addons.mozilla.org/)
+[![Firefox Add-ons](https://img.shields.io/badge/Firefox-Add--ons-FF7139?logo=firefox-browser&logoColor=white)](https://addons.mozilla.org/en-US/firefox/addon/deluge-remote-modern/)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-green.svg)](https://extensionworkshop.com/documentation/develop/manifest-v3-migration-guide/)
 
 A lightweight, open-source Firefox extension to manage your [Deluge](https://deluge-torrent.org/) BitTorrent client directly from your browser. A complete modern fork of the original [Remote Deluge](https://github.com/YodaDaCoda/chrome-deluge-remote), fully rebuilt for Manifest V3 with themes, icon packs, password encryption, and vanilla JS.
