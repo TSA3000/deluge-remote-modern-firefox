@@ -7,14 +7,14 @@
 
 ### New Features
 
-- **Torrent list pagination** — The popup now paginates the torrent list instead of rendering every torrent at once. Default is no paging. Prev/Next buttons appear automatically when needed and hide when all torrents fit on a single page.
+- **Torrent list pagination** — The popup now paginates the torrent list instead of rendering every torrent at once. Default is no paging. Previous/Next buttons appear automatically when needed and hide when all torrents fit on a single page.
 - **Configurable page size** — New "Torrents per page" dropdown in Options → Extras lets you choose 10, 20, 50, 100, or All (no paging).
 
 ### Bug Fixes
 
 - **Test Connection now saves settings first** — Previously the "Test Connection" button on the Options page had no handler wired up. It now calls `saveOptions()` before sending `check_status`, so it tests against the values currently in the form rather than stale stored values. Shows clear feedback: green "Connected!", or red "Failed (reason)".
 
-### Behaviour Details
+### Behavior Details
 
 - Changing sort, filters, or adding/removing torrents resets pagination to page 1.
 - Pagination bar is fully themed — works with all 6 themes and system auto dark mode.
@@ -26,10 +26,10 @@
 |---|---|
 | `manifest.json` | Version bumped to `1.3.0` |
 | `js/global_options.js` | Added `torrents_per_page` config default (20) |
-| `js/popup.js` | Pagination state, sliced rendering in `renderTable()`, Prev/Next button handlers, page reset on filter/sort change |
+| `js/popup.js` | Pagination state, sliced rendering in `renderTable()`, Previous/Next button handlers, page reset on filter/sort change |
 | `js/options.js` | Added save + `check_status` handler for Test Connection button; save/load/change-listener for `torrents_per_page` |
-| `popup.html` | Added `#pagination` bar (Prev, page info, Next) below torrent container |
-| `options.html` | Added "Torrents per page" dropdown in Extras fieldset |
+| `popup.html` | Added `#pagination` bar (Previous, page info, Next) below torrent container |
+| `options.html` | Added "Torrents per page" dropdown in Extras `<fieldset>` |
 | `css/popup.css` | Pagination bar styles |
 | `css/theme-base.css` | Dark theme and system-dark-mode rules for pagination bar |
 | `RELEASE_NOTES.md` | This entry |

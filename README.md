@@ -102,7 +102,7 @@ All JavaScript is identical — Firefox supports the `chrome.*` namespace.
 
 ### v1.3.0 — Pagination & Test Connection Fix (2026-04-15)
 
-- Torrent list pagination with Prev/Next navigation (default no paging)
+- Torrent list pagination with Previous/Next navigation (default no paging)
 - Configurable page size in Options: 10, 20, 50, 100, or All
 - Fixed Test Connection button — now saves settings before testing
 - Pagination bar themed for all 6 themes + system auto
