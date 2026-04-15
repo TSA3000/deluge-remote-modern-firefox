@@ -7,7 +7,7 @@
 
 ### New Features
 
-- **Torrent list pagination** — The popup now paginates the torrent list instead of rendering every torrent at once. Default is 20 torrents per page. Prev/Next buttons appear automatically when needed and hide when all torrents fit on a single page.
+- **Torrent list pagination** — The popup now paginates the torrent list instead of rendering every torrent at once. Default is no paging. Prev/Next buttons appear automatically when needed and hide when all torrents fit on a single page.
 - **Configurable page size** — New "Torrents per page" dropdown in Options → Extras lets you choose 10, 20, 50, 100, or All (no paging).
 
 ### Bug Fixes
