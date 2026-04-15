@@ -119,21 +119,18 @@
                 ://
                 <input
                   id="address_ip"
-                  value="127.0.0.1"
                   placeholder="127.0.0.1"
                   size="15"
                 />
                 :
                 <input
                   id="address_port"
-                  value="8112"
                   placeholder="8112"
                   size="5"
                 />
                 /
                 <input
                   id="address_base"
-                  value="deluge"
                   placeholder="deluge"
                   size="5"
                 />
@@ -342,6 +339,24 @@
                   type="checkbox"
                   value="0"
                 />
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <label for="torrents_per_page"
+                  >Torrents per page<span
+                    ><br />Number of torrents shown per page in the popup</span
+                  ></label
+                >
+              </td>
+              <td>
+                <select id="torrents_per_page">
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="0" selected="selected">All (no paging)</option>
+                </select>
               </td>
             </tr>
           </table>

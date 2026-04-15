@@ -57,6 +57,7 @@ Click the extension icon → open **Options**:
 - **Theme** — System auto, Light, Dark (Midnight), Solarized Dark, Nord, Dracula
 - **Icon Pack** — Classic (original PNGs) or Modern (SVG glyphs, theme-aware colors)
 - **Refresh Interval** — How often the popup polls for updates (500ms – 30s)
+- **Torrents per Page** — Number of torrents shown per page in the popup (10, 20, 50, 100, or All)
 - **Badge Timeout** — How long the Add/Fail badge shows after adding a torrent
 
 ---
@@ -98,6 +99,13 @@ All JavaScript is identical — Firefox supports the `chrome.*` namespace.
 ---
 
 ## Version History
+
+### v1.3.0 — Pagination & Test Connection Fix (2026-04-15)
+
+- Torrent list pagination with Prev/Next navigation (default All)
+- Configurable page size in Options: 10, 20, 50, 100, or All
+- Fixed Test Connection button — now saves settings before testing
+- Pagination bar themed for all 6 themes + system auto
 
 ### v1.2.0 — Firefox 140 Minimum Version (2026-04-11)
 

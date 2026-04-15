@@ -11,7 +11,8 @@ var ExtensionConfig = {
 	refresh_interval: 3000,
 	debug_mode:       false,
 	dark_mode:        "system",
-	icon_pack:        "classic"
+	icon_pack:        "classic",
+	torrents_per_page: 20
 };
 
 chrome.storage.onChanged.addListener(function (changes, namespace) {

@@ -13,6 +13,16 @@ document.addEventListener("DOMContentLoaded", function () {
 	var REFRESH_INTERVAL = ExtensionConfig.refresh_interval || 1000;
 	var refreshTimer = Timer(REFRESH_INTERVAL);
 
+	var currentPage = 1;
+	var totalPages = 1;
+	var pageSize = (typeof ExtensionConfig.torrents_per_page === "number")
+		? ExtensionConfig.torrents_per_page : 20;
+
+	var pagePrev = document.getElementById("page_prev");
+	var pageNext = document.getElementById("page_next");
+	var pageInfo = document.getElementById("page_info");
+	var paginationBar = document.getElementById("pagination");
+
 	var cachedLabelOptionsHtml = '<option value="">(No Label)</option>';
 	var lastLabelHash = "";
 
@@ -109,6 +119,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		rebuildLabelOptions();
 
+		// Re-read pageSize in case it changed via ExtensionConfig listener
+		pageSize = (typeof ExtensionConfig.torrents_per_page === "number")
+			? ExtensionConfig.torrents_per_page : 20;
+
 		var filterState = document.getElementById("filter_state");
 		var filterTracker = document.getElementById("filter_tracker_host");
 		var filterLabel = document.getElementById("filter_label");
@@ -121,9 +135,8 @@ document.addEventListener("DOMContentLoaded", function () {
 			torrents.reverse();
 		}
 
-		var htmlParts = [];
-		var labelValues = [];
-
+		// Apply filters first to get the full filtered list
+		var filtered = [];
 		for (var i = 0, len = torrents.length; i < len; i++) {
 			var torrent = torrents[i];
 
@@ -141,8 +154,39 @@ document.addEventListener("DOMContentLoaded", function () {
 				continue;
 			}
 
-			htmlParts.push(buildRowHtml(torrent));
-			labelValues.push({ id: torrent.id, label: torrent.label || "" });
+			filtered.push(torrent);
+		}
+
+		// Pagination calculation
+		var filteredCount = filtered.length;
+		if (pageSize > 0 && filteredCount > pageSize) {
+			totalPages = Math.ceil(filteredCount / pageSize);
+			if (currentPage > totalPages) currentPage = totalPages;
+			if (currentPage < 1) currentPage = 1;
+
+			var startIdx = (currentPage - 1) * pageSize;
+			var endIdx = startIdx + pageSize;
+			filtered = filtered.slice(startIdx, endIdx);
+
+			// Show pagination bar
+			paginationBar.style.display = "flex";
+			pageInfo.textContent = "Page " + currentPage + " of " + totalPages + " (" + filteredCount + " torrents)";
+			pagePrev.disabled = (currentPage <= 1);
+			pageNext.disabled = (currentPage >= totalPages);
+		} else {
+			totalPages = 1;
+			currentPage = 1;
+			// Hide pagination bar when all fit on one page
+			paginationBar.style.display = "none";
+		}
+
+		// Build HTML for current page
+		var htmlParts = [];
+		var labelValues = [];
+
+		for (var j = 0, jlen = filtered.length; j < jlen; j++) {
+			htmlParts.push(buildRowHtml(filtered[j]));
+			labelValues.push({ id: filtered[j].id, label: filtered[j].label || "" });
 		}
 
 		// Use DOMParser to safely convert string to nodes
@@ -153,9 +197,9 @@ document.addEventListener("DOMContentLoaded", function () {
 			torrentContainer.appendChild(doc.body.firstChild);
 		}
 
-		for (var j = 0, jlen = labelValues.length; j < jlen; j++) {
-			var sel = torrentContainer.querySelector('.label_select[data-torrent-id="' + labelValues[j].id + '"]');
-			if (sel) sel.value = labelValues[j].label;
+		for (var k = 0, klen = labelValues.length; k < klen; k++) {
+			var sel = torrentContainer.querySelector('.label_select[data-torrent-id="' + labelValues[k].id + '"]');
+			if (sel) sel.value = labelValues[k].label;
 		}
 	}
 
@@ -395,11 +439,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		sortEl.addEventListener("change", function () {
 			localStorage.sortColumn = this.value;
+			currentPage = 1;
 			renderTable();
 		});
 
 		sortInvert.addEventListener("change", function () {
 			localStorage.sortMethod = this.checked ? "desc" : "asc";
+			currentPage = 1;
 			renderTable();
 		});
 
@@ -407,11 +453,29 @@ document.addEventListener("DOMContentLoaded", function () {
 			if (el) {
 				el.addEventListener("change", function () {
 					localStorage[this.id] = this.value;
+					currentPage = 1;
 					renderTable();
 				});
 			}
 		});
 	}());
+
+	// ── Pagination Controls ─────────────────────────────────────────────
+	pagePrev.addEventListener("click", function () {
+		if (currentPage > 1) {
+			currentPage--;
+			renderTable();
+			torrentContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+		}
+	});
+
+	pageNext.addEventListener("click", function () {
+		if (currentPage < totalPages) {
+			currentPage++;
+			renderTable();
+			torrentContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+		}
+	});
 
 	// ── Status Checking ─────────────────────────────────────────────────
 	function checkStatus() {

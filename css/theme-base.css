@@ -159,6 +159,28 @@ html:not([data-theme="light"])[data-theme] body {
 	border-color: var(--theme-border-color) !important;
 }
 
+/* ── Pagination Bar ─────────────────────────────────────────────────── */
+[data-theme]:not([data-theme="light"]) #pagination {
+	background-color: var(--theme-bg-secondary) !important;
+	background-image: none !important;
+	border-color: var(--theme-border-color) !important;
+}
+
+[data-theme]:not([data-theme="light"]) #pagination #page_info {
+	color: var(--theme-text-secondary) !important;
+}
+
+[data-theme]:not([data-theme="light"]) #pagination button {
+	background-color: var(--theme-btn-bg) !important;
+	background-image: none !important;
+	color: var(--theme-btn-text) !important;
+	border-color: var(--theme-btn-border) !important;
+}
+
+[data-theme]:not([data-theme="light"]) #pagination button:hover:not(:disabled) {
+	background-color: var(--theme-btn-hover) !important;
+}
+
 [data-theme]:not([data-theme="light"]) .torrent_row {
 	background-color: var(--theme-bg-primary) !important;
 	border-top-color: var(--theme-border-color) !important;
@@ -425,6 +447,22 @@ html:not([data-theme="light"])[data-theme] body {
 	html:not([data-theme]) #filters label { color: var(--theme-text-secondary) !important; }
 
 	html:not([data-theme]) #torrent_container { border-color: var(--theme-border-color) !important; }
+
+	html:not([data-theme]) #pagination {
+		background-color: var(--theme-bg-secondary) !important;
+		background-image: none !important;
+		border-color: var(--theme-border-color) !important;
+	}
+	html:not([data-theme]) #pagination #page_info { color: var(--theme-text-secondary) !important; }
+	html:not([data-theme]) #pagination button {
+		background-color: var(--theme-btn-bg) !important;
+		background-image: none !important;
+		color: var(--theme-btn-text) !important;
+		border-color: var(--theme-btn-border) !important;
+	}
+	html:not([data-theme]) #pagination button:hover:not(:disabled) {
+		background-color: var(--theme-btn-hover) !important;
+	}
 
 	html:not([data-theme]) .torrent_row {
 		background-color: var(--theme-bg-primary) !important;

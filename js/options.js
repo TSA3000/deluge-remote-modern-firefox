@@ -20,6 +20,7 @@ function saveOptions(callback) {
 			"debug_mode":         document.getElementById("debug_mode").checked,
 			"dark_mode":          document.getElementById("dark_mode").value,
 			"icon_pack":          document.getElementById("icon_pack").value,
+			"torrents_per_page":  parseInt(document.getElementById("torrents_per_page").value),
 			"version":            chrome.runtime.getManifest().version
 		};
 
@@ -59,6 +60,31 @@ document.addEventListener("DOMContentLoaded", function () {
 		window.close();
 	});
 	document.getElementById("version").textContent = chrome.runtime.getManifest().version;
+
+	// Test Connection — save settings first, then check status
+	document.getElementById("test_connection").addEventListener("click", function () {
+		var resultEl = document.getElementById("test_result");
+		resultEl.textContent = "Saving & connecting…";
+		resultEl.style.color = "";
+
+		saveOptions(function () {
+			chrome.runtime.sendMessage({ method: "check_status" }, function (response) {
+				if (chrome.runtime.lastError) {
+					resultEl.textContent = "Error: " + chrome.runtime.lastError.message;
+					resultEl.style.color = "red";
+					return;
+				}
+				if (response && response.connected) {
+					resultEl.textContent = "Connected!";
+					resultEl.style.color = "green";
+				} else {
+					var reason = (response && response.reason) ? response.reason : "unknown";
+					resultEl.textContent = "Failed (" + reason + ")";
+					resultEl.style.color = "red";
+				}
+			});
+		});
+	});
 
 	// Live preview: theme change
 	document.getElementById("dark_mode").addEventListener("change", function () {
@@ -120,6 +146,10 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 			case "icon_pack":
 				var ip = document.getElementById("icon_pack");
 				messages.push("Icon pack set to " + ip.options[ip.selectedIndex].text + ".");
+				break;
+			case "torrents_per_page":
+				var tpp = document.getElementById("torrents_per_page");
+				messages.push("Torrents per page set to " + tpp.options[tpp.selectedIndex].text + ". Reopen popup to apply.");
 				break;
 		}
 	}
