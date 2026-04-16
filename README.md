@@ -28,6 +28,9 @@ A Firefox add-on for managing a remote Deluge torrent server from your browser t
 
 ## Version History
 
+### 2026-04-16 v1.4.2 — AMO Validator Fix
+- Replaced `innerHTML` usage in options.js with safe DOM construction (AMO-mandated)
+
 ### 2026-04-16 v1.4.1 — Pagination Dark Mode Fix
 - Fixed pagination bar appearing light in dark themes (including System/OS dark mode)
 

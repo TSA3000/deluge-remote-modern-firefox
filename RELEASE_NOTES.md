@@ -43,6 +43,27 @@ Removed 5 unused fields — about 22% less data per torrent.
 | File | Change |
 |---
 
+## v1.4.2 — AMO Validator Fix
+*2026-04-16*
+
+### Bug Fixes
+
+- **Removed `innerHTML` in options.js** — AMO validator flagged an unsafe `innerHTML` assignment in the status message handler (line 205). Replaced with safe DOM construction using `createElement("br")`, `createTextNode()`, and `appendChild()`. Functionally identical — the status message displays the same way, just built from safe DOM nodes instead of HTML string concatenation.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `js/options.js` | `statusEl.innerHTML = ...` replaced with `createTextNode` + `createElement("br")` + `appendChild` loop |
+| `manifest.json` | Version bumped to `1.4.2` |
+| `RELEASE_NOTES.md` | This entry |
+
+### Note
+
+This is a Firefox-only release. The Chrome version doesn't need this change because the Chrome Web Store doesn't enforce the same CSP-related `innerHTML` restrictions, though we may mirror this fix in a future Chrome release for defense-in-depth.
+
+---
+
 ## v1.4.1 — Pagination Dark Mode Fix
 *2026-04-16*
 
