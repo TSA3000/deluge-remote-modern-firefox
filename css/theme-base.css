@@ -541,3 +541,61 @@ html:not([data-theme="light"])[data-theme] body {
 	color: #f9a825;
 	border-left-color: #f9a825;
 }
+
+/* Pagination — explicit dark themes (override light gradients) */
+[data-theme="dark"] #pagination,
+[data-theme="solarized"] #pagination,
+[data-theme="nord"] #pagination,
+[data-theme="dracula"] #pagination {
+	background-image: none;
+	background-color: var(--theme-input-bg, #1e1e1e);
+	border-color: var(--theme-border-color, #444);
+	color: var(--theme-text-color, #ddd);
+}
+[data-theme="dark"] #pagination button,
+[data-theme="solarized"] #pagination button,
+[data-theme="nord"] #pagination button,
+[data-theme="dracula"] #pagination button {
+	background-image: none;
+	background-color: var(--theme-hover-bg, #2a2a2a);
+	border-color: var(--theme-border-color, #555);
+	color: var(--theme-text-color, #ddd);
+}
+[data-theme="dark"] #pagination button:hover:not(:disabled),
+[data-theme="solarized"] #pagination button:hover:not(:disabled),
+[data-theme="nord"] #pagination button:hover:not(:disabled),
+[data-theme="dracula"] #pagination button:hover:not(:disabled) {
+	background-color: var(--theme-accent, #3a3a3a);
+}
+[data-theme="dark"] #page_info,
+[data-theme="solarized"] #page_info,
+[data-theme="nord"] #page_info,
+[data-theme="dracula"] #page_info {
+	color: var(--theme-text-secondary, #aaa);
+}
+
+/* Pagination — System theme (OS dark mode) */
+@media (prefers-color-scheme: dark) {
+	html:not([data-theme]) #pagination,
+	html[data-theme="system"] #pagination {
+		background-image: none;
+		background-color: #1e1e1e;
+		border-color: #444;
+		color: #ddd;
+	}
+	html:not([data-theme]) #pagination button,
+	html[data-theme="system"] #pagination button {
+		background-image: none;
+		background-color: #2a2a2a;
+		border-color: #555;
+		color: #ddd;
+	}
+	html:not([data-theme]) #pagination button:hover:not(:disabled),
+	html[data-theme="system"] #pagination button:hover:not(:disabled) {
+		background-color: #3a3a3a;
+	}
+	html:not([data-theme]) #page_info,
+	html[data-theme="system"] #page_info {
+		color: #aaa;
+	}
+}

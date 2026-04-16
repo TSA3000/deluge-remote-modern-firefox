@@ -41,7 +41,31 @@ Removed 5 unused fields — about 22% less data per torrent.
 ### Files Changed
 
 | File | Change |
+|---
+
+## v1.4.1 — Pagination Dark Mode Fix
+*2026-04-16*
+
+### Bug Fixes
+
+- **Pagination bar appeared light in dark themes** — The pagination bar and its Prev/Next buttons rendered with a light gradient background in all dark themes, including System (OS-level dark mode). The existing dark theme rules in `theme-base.css` didn't override the `background-image: linear-gradient(...)` on the pagination container, and they didn't target System theme at all (which uses `@media prefers-color-scheme` rather than a `data-theme` attribute).
+
+### Fix
+
+- Added explicit overrides for `[data-theme="dark"]`, `[data-theme="solarized"]`, `[data-theme="nord"]`, and `[data-theme="dracula"]` that set `background-image: none` plus the proper dark background color
+- Added `@media (prefers-color-scheme: dark)` block covering `html:not([data-theme])` and `html[data-theme="system"]` so OS-level dark mode applies the same dark styling
+
+### Files Changed
+
+| File | Change |
 |---|---|
+| `css/theme-base.css` | Added pagination dark-mode rules for all themes + System |
+| `manifest.json` | Version bumped to `1.4.1` |
+| `RELEASE_NOTES.md` | This entry |
+
+---
+
+|---|
 | `js/torrents.js` | Diff polling, events, trimmed KEYS, plugin detection |
 | `js/popup.js` | Search filter, event polling, conditional label rendering |
 | `js/deluge.js` | Silent default catch, AbortError normalization |
