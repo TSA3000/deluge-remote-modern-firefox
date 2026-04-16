@@ -22,7 +22,11 @@ var Deluge = (function () {
 		var errorCbs   = [];
 
 		var controller = new AbortController();
-		var timer = setTimeout(function () { controller.abort(); }, timeout);
+		var aborted = false;
+		var timer = setTimeout(function () {
+			aborted = true;
+			controller.abort();
+		}, timeout);
 
 		var fetchPromise = fetch(endpoint() + "json", {
 			method: "POST",
@@ -51,13 +55,25 @@ var Deluge = (function () {
 		})
 		.catch(function (err) {
 			clearTimeout(timer);
+
+			// Normalize AbortError into a typed error
+			if (err && err.name === "AbortError") {
+				err = { type: "timeout", message: "Request aborted (timeout after " + timeout + "ms)", _aborted: aborted };
+			}
+
 			if (!err._handled) {
 				for (var i = 0; i < errorCbs.length; i++) {
-					errorCbs[i]({}, "error", err);
+					try { errorCbs[i]({}, "error", err); } catch (_) {}
 				}
 			}
-			throw err;
+			// Swallow by default so callers using .success()/.error() don't see
+			// "Uncaught (in promise)" noise. Callers using .then/.catch still get it.
+			return Promise.reject(err);
 		});
+
+		// Silent default catch so AbortError / network errors don't surface as
+		// uncaught rejections when the caller only uses .success()/.error()
+		fetchPromise.catch(function () {});
 
 		var wrapper = {
 			success: function (cb) {

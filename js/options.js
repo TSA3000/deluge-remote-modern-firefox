@@ -8,20 +8,20 @@ function saveOptions(callback) {
 
 	function doSave(passwordValue) {
 		var settings = {
-			"address_protocol":   document.getElementById("address_protocol").value,
-			"address_ip":         document.getElementById("address_ip").value,
-			"address_port":       document.getElementById("address_port").value,
-			"address_base":       document.getElementById("address_base").value,
-			"handle_torrents":    document.getElementById("handle_torrents").checked,
-			"handle_magnets":     document.getElementById("handle_magnets").checked,
-			"context_menu":       document.getElementById("context_menu").checked,
-			"badge_timeout":      parseInt(document.getElementById("badge_timeout").value),
-			"refresh_interval":   parseInt(document.getElementById("refresh_interval").value),
-			"debug_mode":         document.getElementById("debug_mode").checked,
-			"dark_mode":          document.getElementById("dark_mode").value,
-			"icon_pack":          document.getElementById("icon_pack").value,
-			"torrents_per_page":  parseInt(document.getElementById("torrents_per_page").value),
-			"version":            chrome.runtime.getManifest().version
+			"address_protocol": document.getElementById("address_protocol").value,
+			"address_ip": document.getElementById("address_ip").value,
+			"address_port": document.getElementById("address_port").value,
+			"address_base": document.getElementById("address_base").value,
+			"handle_torrents": document.getElementById("handle_torrents").checked,
+			"handle_magnets": document.getElementById("handle_magnets").checked,
+			"context_menu": document.getElementById("context_menu").checked,
+			"badge_timeout": parseInt(document.getElementById("badge_timeout").value),
+			"refresh_interval": parseInt(document.getElementById("refresh_interval").value),
+			"debug_mode": document.getElementById("debug_mode").checked,
+			"dark_mode": document.getElementById("dark_mode").value,
+			"icon_pack": document.getElementById("icon_pack").value,
+			"torrents_per_page": parseInt(document.getElementById("torrents_per_page").value),
+			"version": chrome.runtime.getManifest().version
 		};
 
 		// Only include password if it changed
@@ -54,37 +54,12 @@ document.addEventListener("DOMContentLoaded", function () {
 		saveOptions();
 	});
 	document.querySelector(".buttons .apply").addEventListener("click", function () {
-		saveOptions(function() { window.close(); });
+		saveOptions(function () { window.close(); });
 	});
 	document.querySelector(".buttons .cancel").addEventListener("click", function () {
 		window.close();
 	});
 	document.getElementById("version").textContent = chrome.runtime.getManifest().version;
-
-	// Test Connection — save settings first, then check status
-	document.getElementById("test_connection").addEventListener("click", function () {
-		var resultEl = document.getElementById("test_result");
-		resultEl.textContent = "Saving & connecting…";
-		resultEl.style.color = "";
-
-		saveOptions(function () {
-			chrome.runtime.sendMessage({ method: "check_status" }, function (response) {
-				if (chrome.runtime.lastError) {
-					resultEl.textContent = "Error: " + chrome.runtime.lastError.message;
-					resultEl.style.color = "red";
-					return;
-				}
-				if (response && response.connected) {
-					resultEl.textContent = "Connected!";
-					resultEl.style.color = "green";
-				} else {
-					var reason = (response && response.reason) ? response.reason : "unknown";
-					resultEl.textContent = "Failed (" + reason + ")";
-					resultEl.style.color = "red";
-				}
-			});
-		});
-	});
 
 	// Live preview: theme change
 	document.getElementById("dark_mode").addEventListener("change", function () {
@@ -95,6 +70,81 @@ document.addEventListener("DOMContentLoaded", function () {
 	document.getElementById("icon_pack").addEventListener("change", function () {
 		applyIconPack(this.value);
 	});
+
+	// Test connection button
+	document.getElementById("test_connection").addEventListener("click", function () {
+		var btn = this;
+		var result = document.getElementById("test_result");
+		btn.disabled = true;
+		result.textContent = "Testing...";
+		result.className = "test-result testing";
+
+		saveOptions(function () {
+			chrome.runtime.sendMessage({ method: "check_status" }, function (response) {
+				btn.disabled = false;
+				if (chrome.runtime.lastError) {
+					result.textContent = "✗ Service worker not responding";
+					result.className = "test-result error";
+					return;
+				}
+				if (response && response.connected) {
+					result.textContent = "✓ Connected successfully!";
+					result.className = "test-result success";
+				} else if (response && response.reason === "auth_failed") {
+					result.textContent = "✗ Login failed — check your password";
+					result.className = "test-result error";
+				} else if (response && response.reason === "network_error") {
+					result.textContent = "✗ Cannot reach server — check the address";
+					result.className = "test-result error";
+				} else {
+					result.textContent = "✗ Connection failed";
+					result.className = "test-result error";
+				}
+			});
+		});
+	});
+
+	// ── URL Preview — live endpoint display ────────────────────────────
+	function updateUrlPreview() {
+		var proto = document.getElementById("address_protocol").value || "https";
+		var ip    = document.getElementById("address_ip").value || "<ip-or-host>";
+		var port  = document.getElementById("address_port").value || "8112";
+		var base  = document.getElementById("address_base").value.trim();
+		var url = proto + "://" + ip + ":" + port + "/" + (base ? base + "/" : "") + "json";
+		document.getElementById("url_preview_value").textContent = url;
+
+		// Show HTTP warning only when protocol is http
+		var httpWarn = document.getElementById("http_warning_row");
+		if (httpWarn) {
+			httpWarn.style.display = (proto === "http") ? "" : "none";
+		}
+	}
+	["address_protocol", "address_ip", "address_port", "address_base"].forEach(function (id) {
+		var el = document.getElementById(id);
+		if (!el) return;
+		el.addEventListener("input", updateUrlPreview);
+		el.addEventListener("change", updateUrlPreview);
+	});
+	updateUrlPreview();
+
+	// ── Password show/hide toggle ──────────────────────────────────────
+	var pwToggle = document.getElementById("password_toggle");
+	if (pwToggle) {
+		pwToggle.addEventListener("click", function () {
+			var pw = document.getElementById("password");
+			if (pw.type === "password") {
+				pw.type = "text";
+				this.textContent = "🙈";
+				this.setAttribute("aria-label", "Hide password");
+				this.title = "Hide password";
+			} else {
+				pw.type = "password";
+				this.textContent = "👁";
+				this.setAttribute("aria-label", "Show password");
+				this.title = "Show password";
+			}
+		});
+	}
 });
 
 chrome.storage.onChanged.addListener(function (changes, namespace) {
@@ -147,21 +197,12 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 				var ip = document.getElementById("icon_pack");
 				messages.push("Icon pack set to " + ip.options[ip.selectedIndex].text + ".");
 				break;
-			case "torrents_per_page":
-				var tpp = document.getElementById("torrents_per_page");
-				messages.push("Torrents per page set to " + tpp.options[tpp.selectedIndex].text + ". Reopen popup to apply.");
-				break;
 		}
 	}
 
 	if (messages.length > 0) {
 		var statusEl = document.getElementById("status-message");
-		statusEl.textContent = "";
-		for (var m = 0; m < messages.length; m++) {
-			statusEl.appendChild(document.createTextNode(messages[m]));
-			statusEl.appendChild(document.createElement("br"));
-		}
-		statusEl.appendChild(document.createElement("br"));
+		statusEl.innerHTML = messages.join("<br>") + "<br><br>";
 		statusEl.style.display = "";
 		statusEl.style.opacity = "1";
 
@@ -197,7 +238,15 @@ chrome.storage.sync.get(function (items) {
 	}
 
 	if (window.location.search === "?newver=true" && Object.keys(items).length > 0) {
-		debug_log("New version. Saving settings.");
+		debug_log("Version upgrade. Re-saving settings.");
 		saveOptions();
+	}
+
+	// Refresh URL preview after settings loaded
+	var updateBtn = document.getElementById("url_preview_value");
+	if (updateBtn) {
+		// Trigger the input event chain so preview + HTTP warning update
+		var evt = new Event("input");
+		document.getElementById("address_protocol").dispatchEvent(new Event("change"));
 	}
 });

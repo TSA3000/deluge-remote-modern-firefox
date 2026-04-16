@@ -49,6 +49,9 @@
 		</div>
 		<div style="clear: both;"></div>
 		<div id="filters">
+			<span>Search:</span>
+				<input type="text" id="search_name" placeholder="Filter by name..." />
+			<br>
 			<span>Sort:</span>
 				<select id="sort">
 					<option value="name">Name</option>
@@ -64,8 +67,10 @@
 				<select id="filter_state"></select>
 			<span>Tracker:</span>
 				<select id="filter_tracker_host"></select>
-			<span>Label:</span>
+			<span class="label-filter-group">
+				<span>Label:</span>
 				<select id="filter_label"></select>
+			</span>
 		</div>
 		<div id="torrent_container"></div>
 		<div id="pagination">

@@ -267,3 +267,18 @@ body {
 	font-size: 1em;
 	color: #555;
 }
+
+/* Search box */
+#search_name {
+	width: 250px;
+	padding: 3px 6px;
+	font-size: 11px;
+	border: 1px solid #ccc;
+	border-radius: 3px;
+	margin-left: 4px;
+}
+
+#search_name:focus {
+	outline: none;
+	border-color: #4a90e2;
+}

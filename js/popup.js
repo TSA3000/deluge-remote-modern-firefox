@@ -44,6 +44,9 @@ document.addEventListener("DOMContentLoaded", function () {
 		var managed = torrent.autoManaged ? "managed" : "unmanaged";
 		var finishedClass = torrent.is_finished ? " finished" : "";
 		var sizeText = (torrent.progress != 100 ? torrent.getHumanDownloadedSize() + " of " : "") + torrent.getHumanSize();
+		var labelCellHtml = Torrents.hasPlugin("Label")
+			? '<td class="table_cell_label"><select class="label_select" data-torrent-id="' + torrent.id + '">' + cachedLabelOptionsHtml + '</select></td>'
+			: "";
 
 		return '<div class="torrent_row" data-id="' + torrent.id + '">' +
 			'<table><tr>' +
@@ -56,7 +59,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				'<td class="table_cell_ratio">Ratio: ' + torrent.getRatio() + '</td>' +
 				'<td class="table_cell_peers">Peers: ' + torrent.num_peers + '/' + torrent.total_peers + '</td>' +
 				'<td class="table_cell_seeds">Seeds: ' + torrent.num_seeds + '/' + torrent.total_seeds + '</td>' +
-				'<td class="table_cell_label"><select class="label_select" data-torrent-id="' + torrent.id + '">' + cachedLabelOptionsHtml + '</select></td>' +
+				labelCellHtml +
 				'<td class="table_cell_speed">' + torrent.getSpeeds() + '</td>' +
 			'</tr></table>' +
 			'<table><tr><td class="table_cell_progress">' +
@@ -126,9 +129,11 @@ document.addEventListener("DOMContentLoaded", function () {
 		var filterState = document.getElementById("filter_state");
 		var filterTracker = document.getElementById("filter_tracker_host");
 		var filterLabel = document.getElementById("filter_label");
+		var searchEl = document.getElementById("search_name");
 		var fState = filterState ? filterState.value : "All";
 		var fTracker = filterTracker ? filterTracker.value : "All";
 		var fLabel = filterLabel ? filterLabel.value : "All";
+		var fSearch = searchEl ? searchEl.value.trim().toLowerCase() : "";
 
 		var torrents = Torrents.sort(localStorage.sortColumn || "position").getAll();
 		if (localStorage.sortMethod === "desc") {
@@ -151,6 +156,9 @@ document.addEventListener("DOMContentLoaded", function () {
 				}
 			}
 			if (fLabel !== "All" && fLabel !== torrent.label) {
+				continue;
+			}
+			if (fSearch && torrent.name.toLowerCase().indexOf(fSearch) === -1) {
 				continue;
 			}
 
@@ -183,10 +191,13 @@ document.addEventListener("DOMContentLoaded", function () {
 		// Build HTML for current page
 		var htmlParts = [];
 		var labelValues = [];
+		var labelEnabled = Torrents.hasPlugin("Label");
 
 		for (var j = 0, jlen = filtered.length; j < jlen; j++) {
 			htmlParts.push(buildRowHtml(filtered[j]));
-			labelValues.push({ id: filtered[j].id, label: filtered[j].label || "" });
+			if (labelEnabled) {
+				labelValues.push({ id: filtered[j].id, label: filtered[j].label || "" });
+			}
 		}
 
 		// Use DOMParser to safely convert string to nodes
@@ -197,9 +208,11 @@ document.addEventListener("DOMContentLoaded", function () {
 			torrentContainer.appendChild(doc.body.firstChild);
 		}
 
-		for (var k = 0, klen = labelValues.length; k < klen; k++) {
-			var sel = torrentContainer.querySelector('.label_select[data-torrent-id="' + labelValues[k].id + '"]');
-			if (sel) sel.value = labelValues[k].label;
+		if (labelEnabled) {
+			for (var k = 0, klen = labelValues.length; k < klen; k++) {
+				var sel = torrentContainer.querySelector('.label_select[data-torrent-id="' + labelValues[k].id + '"]');
+				if (sel) sel.value = labelValues[k].label;
+			}
 		}
 	}
 
@@ -460,6 +473,49 @@ document.addEventListener("DOMContentLoaded", function () {
 		});
 	}());
 
+	// ── Search Box ─────────────────────────────────────────────────────
+	(function () {
+		var searchEl = document.getElementById("search_name");
+		if (!searchEl) return;
+
+		var debounceTimer = null;
+		searchEl.addEventListener("input", function () {
+			clearTimeout(debounceTimer);
+			debounceTimer = setTimeout(function () {
+				currentPage = 1;
+				renderTable();
+			}, 150);
+		});
+
+		// Clear search on Escape
+		searchEl.addEventListener("keydown", function (e) {
+			if (e.keyCode === 27 && this.value) {
+				this.value = "";
+				currentPage = 1;
+				renderTable();
+				e.preventDefault();
+			}
+		});
+	}());
+
+	// ── Plugin-aware UI ────────────────────────────────────────────────
+	// Hide UI elements that depend on a plugin we couldn't detect on the server.
+	function applyPluginVisibility() {
+		var labelGroup = document.querySelector(".label-filter-group");
+		if (labelGroup) {
+			labelGroup.style.display = Torrents.hasPlugin("Label") ? "" : "none";
+		}
+	}
+	document.addEventListener("Torrents:pluginsChanged", function () {
+		applyPluginVisibility();
+		renderTable(); // rebuild rows so the per-row label cell appears/disappears
+	});
+	// Initial state: hide until we know the answer (avoid flash of useless UI)
+	(function () {
+		var labelGroup = document.querySelector(".label-filter-group");
+		if (labelGroup) labelGroup.style.display = "none";
+	}());
+
 	// ── Pagination Controls ─────────────────────────────────────────────
 	pagePrev.addEventListener("click", function () {
 		if (currentPage > 1) {
@@ -476,6 +532,31 @@ document.addEventListener("DOMContentLoaded", function () {
 			torrentContainer.scrollIntoView({ behavior: "smooth", block: "start" });
 		}
 	});
+
+	// ── Event Polling ──────────────────────────────────────────────────
+	// Poll Deluge events between full/diff updates to catch add/remove quickly
+	var eventPollInterval = null;
+	function startEventPolling() {
+		if (eventPollInterval) return;
+		eventPollInterval = setInterval(function () {
+			if (!extensionActivated) return;
+			var req = Torrents.pollEvents();
+			if (req && req.success) {
+				req.success(function () {
+					if (Torrents.getAll().length > 0) {
+						renderTable();
+						renderGlobalInformation();
+					}
+				});
+			}
+		}, 1000);
+	}
+	function stopEventPolling() {
+		if (eventPollInterval) {
+			clearInterval(eventPollInterval);
+			eventPollInterval = null;
+		}
+	}
 
 	// ── Status Checking ─────────────────────────────────────────────────
 	function checkStatus() {
@@ -505,11 +586,13 @@ document.addEventListener("DOMContentLoaded", function () {
 			extensionActivated = true;
 			DomHelper.hide(overlay);
 			updateTable();
+			startEventPolling();
 		}
 	}
 
 	function deactivated() {
 		extensionActivated = false;
+		stopEventPolling();
 	}
 
 	function autoLoginFailed() {

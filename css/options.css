@@ -3,66 +3,150 @@
    ===================================================================== */
 
 body {
-	width: 100%;
-	color: #000000;
+  width: 100%;
+  color: #000000;
 }
 
 #content {
-	width: 700px;
-	margin-left: auto;
-	margin-right: auto;
-	border: 1px solid #CCC;
-	padding: 5px;
+  width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+  border: 1px solid #ccc;
+  padding: 5px;
 }
 
 #options {
-	width: 600px;
-	margin: 0 auto;
+  width: 600px;
+  margin: 0 auto;
 }
 
 #options fieldset {
-	margin-left: auto;
-	margin-right: auto;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 label span {
-	font-size: 75%;
+  font-size: 75%;
 }
 
 table tr td:nth-child(1) {
-	width: 150px;
-	padding-right: 5px;
-	text-align: right;
+  width: 150px;
+  padding-right: 5px;
+  text-align: right;
 }
 
 /* ── Save / Reset Buttons ────────────────────────────────────────────── */
 
 .buttons {
-	margin-top: 10px;
+  margin-top: 10px;
 }
 
 .buttons .left {
-	float: left;
+  float: left;
 }
 
 .buttons .right {
-	float: right;
+  float: right;
 }
 
 /* ── Logo ────────────────────────────────────────────────────────────── */
 
 div#logo span {
-	display: inline-block;
+  display: inline-block;
 }
 
-/* ── Connection Test ─────────────────────────────────────────────────── */
-
 #test_connection {
-    margin-top: 5px;
+  margin-top: 5px;
 }
 
 #test_result {
-    margin-left: 10px;
-    font-weight: bold;
-    font-size: 0.9em;
+  margin-left: 10px;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+
+/* ── Setup Page Polish ─────────────────────────────────────────────── */
+
+/* Field help text */
+.field-hint {
+	display: block;
+	margin-top: 4px;
+	font-size: 10px;
+	color: #888;
+	line-height: 1.4;
+}
+.field-hint code {
+	background: rgba(0,0,0,0.06);
+	padding: 1px 4px;
+	border-radius: 2px;
+	font-size: 10px;
+}
+
+/* Live URL preview */
+#url_preview {
+	margin: 4px 0 8px;
+	padding: 4px 8px;
+	background: rgba(0,0,0,0.04);
+	border-radius: 3px;
+	font-size: 11px;
+	display: inline-block;
+}
+#url_preview .url-label {
+	color: #888;
+	margin-right: 6px;
+}
+#url_preview code {
+	font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+	color: #0069d9;
+}
+
+/* Password toggle button */
+.icon-btn {
+	background: none;
+	border: 1px solid transparent;
+	border-radius: 3px;
+	padding: 2px 6px;
+	cursor: pointer;
+	font-size: 14px;
+	vertical-align: middle;
+	margin-left: 4px;
+}
+.icon-btn:hover {
+	background: rgba(0,0,0,0.05);
+	border-color: #ccc;
+}
+
+/* HTTP warning */
+.inline-warning {
+	margin-top: 4px;
+	padding: 6px 10px;
+	background: #fff8e1;
+	border-left: 3px solid #f9a825;
+	border-radius: 2px;
+	font-size: 11px;
+	color: #6b5b00;
+	line-height: 1.5;
+}
+.inline-warning code {
+	background: rgba(0,0,0,0.08);
+	padding: 1px 4px;
+	border-radius: 2px;
+	font-size: 10px;
+}
+
+/* Test Connection result — enhanced */
+#test_result {
+	margin-left: 10px;
+	font-size: 12px;
+	font-weight: 500;
+	vertical-align: middle;
+}
+#test_result.testing {
+	color: #888;
+}
+#test_result.success {
+	color: #27ae60;
+}
+#test_result.error {
+	color: #e74c3c;
 }
