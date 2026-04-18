@@ -18,7 +18,17 @@ let ExtensionConfig = {
 	badge_timeout:    250,
 	refresh_interval: 3000,
 	debug_mode:       false,
-	dark_mode:        "system"
+	dark_mode:        "system",
+	torrents_per_page: 0,
+
+	// ── Prowlarr integration ───────────────────────────────────────────
+	prowlarr_enabled:       false,
+	prowlarr_protocol:      "http",
+	prowlarr_ip:            "",
+	prowlarr_port:          "9696",
+	prowlarr_base:          "",
+	prowlarr_api_key:       "",
+	prowlarr_results_limit: 100
 };
 
 function loadConfig() {
@@ -29,6 +39,12 @@ function loadConfig() {
 	});
 }
 
+// A promise that resolves once the very first loadConfig() has finished.
+// Message handlers await this so they never answer before config is ready
+// (otherwise Prowlarr calls fire during cold-start and return "disabled").
+let _configReady = loadConfig();
+function waitForConfig() { return _configReady; }
+
 chrome.storage.onChanged.addListener((changes, namespace) => {
 	for (const key in changes) {
 		ExtensionConfig[key] = changes[key].newValue;
@@ -36,6 +52,8 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 			updateContextMenu(changes[key].newValue);
 		}
 	}
+	// Ensure subsequent callers see latest values
+	_configReady = Promise.resolve();
 });
 
 // ── Debug Log ───────────────────────────────────────────────────────────────
@@ -89,6 +107,132 @@ const DelugeAPI = {
 			clearTimeout(timer);
 			return { error: { type: "network", message: err.message } };
 		}
+	}
+};
+
+// ── Prowlarr API (fetch-based) ──────────────────────────────────────────────
+// Track the AbortController of the currently-running search so the popup
+// can cancel it via the "prowlarr_cancel_search" message.
+let currentProwlarrSearchController = null;
+
+const ProwlarrAPI = {
+	endpoint() {
+		const proto = ExtensionConfig.prowlarr_protocol || "http";
+		const ip    = ExtensionConfig.prowlarr_ip || "";
+		const port  = ExtensionConfig.prowlarr_port || "9696";
+		const base  = ExtensionConfig.prowlarr_base;
+		return `${proto}://${ip}:${port}/${base ? base + "/" : ""}`;
+	},
+
+	buildUrl(path, query) {
+		let url = this.endpoint() + String(path || "").replace(/^\/+/, "");
+		if (query && typeof query === "object") {
+			const parts = [];
+			for (const key in query) {
+				if (query[key] === null || query[key] === undefined || query[key] === "") continue;
+				parts.push(encodeURIComponent(key) + "=" + encodeURIComponent(query[key]));
+			}
+			if (parts.length) {
+				url += (url.indexOf("?") === -1 ? "?" : "&") + parts.join("&");
+			}
+		}
+		return url;
+	},
+
+	async call(path, { httpMethod = "GET", query = null, body = null, timeout = 15000, signal = null } = {}) {
+		await waitForConfig();
+		if (!ExtensionConfig.prowlarr_enabled) {
+			return { error: { type: "disabled", message: "Prowlarr is not enabled" } };
+		}
+		if (!ExtensionConfig.prowlarr_ip) {
+			return { error: { type: "config", message: "Prowlarr address not configured" } };
+		}
+
+		const apiKey = await PasswordCrypto.decrypt(ExtensionConfig.prowlarr_api_key);
+		if (!apiKey) {
+			return { error: { type: "auth", message: "Prowlarr API key not configured" } };
+		}
+
+		const url = this.buildUrl(path, query);
+
+		// If the caller supplied a signal (for cancellation), honor it by
+		// creating a combined controller that aborts on either timeout or
+		// external cancel. We track which path aborted so we can return a
+		// distinct error type.
+		const controller = new AbortController();
+		let timedOut = false;
+		const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeout);
+
+		let externalAbortHandler = null;
+		if (signal) {
+			if (signal.aborted) controller.abort();
+			else {
+				externalAbortHandler = () => controller.abort();
+				signal.addEventListener("abort", externalAbortHandler);
+			}
+		}
+
+		try {
+			const fetchOpts = {
+				method: httpMethod,
+				headers: {
+					"X-Api-Key":    apiKey,
+					"Accept":       "application/json"
+				},
+				signal: controller.signal
+			};
+			if (body !== null && httpMethod !== "GET" && httpMethod !== "HEAD") {
+				fetchOpts.headers["Content-Type"] = "application/json";
+				fetchOpts.body = typeof body === "string" ? body : JSON.stringify(body);
+			}
+
+			const resp = await fetch(url, fetchOpts);
+			clearTimeout(timer);
+
+			if (resp.status === 401 || resp.status === 403) {
+				return { error: { type: "auth", status: resp.status, message: "Prowlarr rejected API key" } };
+			}
+			if (!resp.ok) {
+				let text = "";
+				try { text = await resp.text(); } catch (_) {}
+				return { error: { type: "http", status: resp.status, message: resp.statusText || text } };
+			}
+
+			const ct = resp.headers.get("content-type") || "";
+			if (ct.indexOf("application/json") === -1) {
+				return { result: null };
+			}
+			const json = await resp.json();
+			return { result: json };
+		} catch (err) {
+			clearTimeout(timer);
+			if (err && err.name === "AbortError") {
+				// Distinguish cancellation from timeout
+				if (timedOut) {
+					return { error: { type: "timeout", message: `Request timed out after ${timeout}ms` } };
+				}
+				return { error: { type: "cancelled", message: "Request cancelled" } };
+			}
+			return { error: { type: "network", message: err.message || String(err) } };
+		} finally {
+			if (externalAbortHandler && signal) {
+				signal.removeEventListener("abort", externalAbortHandler);
+			}
+		}
+	},
+
+	async checkStatus(timeout = 5000) {
+		if (!ExtensionConfig.prowlarr_enabled) {
+			return { connected: false, reason: "disabled" };
+		}
+		const resp = await this.call("api/v1/system/status", { timeout });
+		if (resp.result) {
+			return { connected: true, version: resp.result.version, appName: resp.result.appName };
+		}
+		if (resp.error) {
+			return { connected: false, reason: resp.error.type, status: resp.error.status, message: resp.error.message };
+		}
+		return { connected: false, reason: "unknown" };
 	}
 };
 
@@ -383,6 +527,51 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 			DelugeAPI.call(request.apiMethod, request.params, request.options || {})
 				.then(resp => sendResponse(resp));
 			return true;
+
+		case "prowlarr_api": {
+			// If this is a search, track its controller so it can be cancelled
+			const isSearch = request.path === "api/v1/search" && (request.httpMethod || "GET") === "GET";
+			const ctrl = new AbortController();
+			if (isSearch) {
+				// Any previous in-flight search is superseded
+				if (currentProwlarrSearchController) {
+					try { currentProwlarrSearchController.abort(); } catch (_) {}
+				}
+				currentProwlarrSearchController = ctrl;
+			}
+			ProwlarrAPI.call(request.path, {
+				httpMethod: request.httpMethod || "GET",
+				query:      request.query      || null,
+				body:       request.body       || null,
+				timeout:    request.timeout    || 15000,
+				signal:     ctrl.signal
+			}).then(resp => {
+				if (isSearch && currentProwlarrSearchController === ctrl) {
+					currentProwlarrSearchController = null;
+				}
+				sendResponse(resp);
+			});
+			return true;
+		}
+
+		case "prowlarr_cancel_search":
+			if (currentProwlarrSearchController) {
+				try { currentProwlarrSearchController.abort(); } catch (_) {}
+				currentProwlarrSearchController = null;
+				sendResponse({ cancelled: true });
+			} else {
+				sendResponse({ cancelled: false });
+			}
+			return false;
+
+		case "check_prowlarr_status":
+			ProwlarrAPI.checkStatus(request.timeout || 5000)
+				.then(resp => sendResponse(resp));
+			return true;
+
+		case "get_prowlarr_endpoint":
+			sendResponse({ endpoint: ProwlarrAPI.endpoint() });
+			return false;
 
 		case "get_endpoint":
 			sendResponse({ endpoint: DelugeAPI.endpoint() });

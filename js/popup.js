@@ -13,18 +13,12 @@ document.addEventListener("DOMContentLoaded", function () {
 	var REFRESH_INTERVAL = ExtensionConfig.refresh_interval || 1000;
 	var refreshTimer = Timer(REFRESH_INTERVAL);
 
-	var currentPage = 1;
-	var totalPages = 1;
-	var pageSize = (typeof ExtensionConfig.torrents_per_page === "number")
-		? ExtensionConfig.torrents_per_page : 20;
-
-	var pagePrev = document.getElementById("page_prev");
-	var pageNext = document.getElementById("page_next");
-	var pageInfo = document.getElementById("page_info");
-	var paginationBar = document.getElementById("pagination");
-
 	var cachedLabelOptionsHtml = '<option value="">(No Label)</option>';
 	var lastLabelHash = "";
+	// Pagination
+	var currentPage = 0;
+	var totalPages = 1;
+	var TORRENTS_PER_PAGE = ExtensionConfig.torrents_per_page || 0;
 
 	function rebuildLabelOptions() {
 		var labels = Torrents.getLabels();
@@ -44,41 +38,38 @@ document.addEventListener("DOMContentLoaded", function () {
 		var managed = torrent.autoManaged ? "managed" : "unmanaged";
 		var finishedClass = torrent.is_finished ? " finished" : "";
 		var sizeText = (torrent.progress != 100 ? torrent.getHumanDownloadedSize() + " of " : "") + torrent.getHumanSize();
-		var labelCellHtml = Torrents.hasPlugin("Label")
-			? '<td class="table_cell_label"><select class="label_select" data-torrent-id="' + torrent.id + '">' + cachedLabelOptionsHtml + '</select></td>'
-			: "";
 
 		return '<div class="torrent_row" data-id="' + torrent.id + '">' +
 			'<table><tr>' +
-				'<td class="table_cell_position">' + torrent.getPosition() + '</td>' +
-				'<td class="table_cell_name">' + torrent.name + '</td>' +
+			'<td class="table_cell_position">' + torrent.getPosition() + '</td>' +
+			'<td class="table_cell_name">' + torrent.name + '</td>' +
 			'</tr></table>' +
 			'<table><tr>' +
-				'<td class="table_cell_size">' + sizeText + '</td>' +
-				'<td class="table_cell_eta">ETA: ' + torrent.getEta() + '</td>' +
-				'<td class="table_cell_ratio">Ratio: ' + torrent.getRatio() + '</td>' +
-				'<td class="table_cell_peers">Peers: ' + torrent.num_peers + '/' + torrent.total_peers + '</td>' +
-				'<td class="table_cell_seeds">Seeds: ' + torrent.num_seeds + '/' + torrent.total_seeds + '</td>' +
-				labelCellHtml +
-				'<td class="table_cell_speed">' + torrent.getSpeeds() + '</td>' +
+			'<td class="table_cell_size">' + sizeText + '</td>' +
+			'<td class="table_cell_eta">ETA: ' + torrent.getEta() + '</td>' +
+			'<td class="table_cell_ratio">Ratio: ' + torrent.getRatio() + '</td>' +
+			'<td class="table_cell_peers">Peers: ' + torrent.num_peers + '/' + torrent.total_peers + '</td>' +
+			'<td class="table_cell_seeds">Seeds: ' + torrent.num_seeds + '/' + torrent.total_seeds + '</td>' +
+			'<td class="table_cell_label"><select class="label_select" data-torrent-id="' + torrent.id + '">' + cachedLabelOptionsHtml + '</select></td>' +
+			'<td class="table_cell_speed">' + torrent.getSpeeds() + '</td>' +
 			'</tr></table>' +
 			'<table><tr><td class="table_cell_progress">' +
-				'<div class="progress_bar">' +
-					'<div class="inner ' + torrent.state + finishedClass + '" style="width:' + torrent.getPercent() + '"></div>' +
-					'<span>' + torrent.getPercent() + ' - ' + torrent.state + '</span>' +
-				'</div>' +
+			'<div class="progress_bar">' +
+			'<div class="inner ' + torrent.state + finishedClass + '" style="width:' + torrent.getPercent() + '"></div>' +
+			'<span>' + torrent.getPercent() + ' - ' + torrent.state + '</span>' +
+			'</div>' +
 			'</td></tr></table>' +
 			'<table><tr><td class="table_cell_actions">' +
-				'<div class="main_actions">' +
-					'<a class="state ' + state + '" title="Pause/Resume Torrent"></a>' +
-					'<a class="move_up" title="Move Torrent Up"></a>' +
-					'<a class="move_down" title="Move Torrent Down"></a>' +
-					'<a class="toggle_managed ' + managed + '" title="Toggle Auto-managed State"></a>' +
-					'<a class="force_recheck" title="Force re-check data"></a>' +
-					'<a class="delete" title="Delete Options"></a>' +
-				'</div>' +
+			'<div class="main_actions">' +
+			'<a class="state ' + state + '" title="Pause/Resume Torrent"></a>' +
+			'<a class="move_up" title="Move Torrent Up"></a>' +
+			'<a class="move_down" title="Move Torrent Down"></a>' +
+			'<a class="toggle_managed ' + managed + '" title="Toggle Auto-managed State"></a>' +
+			'<a class="force_recheck" title="Force re-check data"></a>' +
+			'<a class="delete" title="Delete Options"></a>' +
+			'</div>' +
 			'</td></tr></table>' +
-		'</div>';
+			'</div>';
 	}
 
 	function updateTableDelay(ms) {
@@ -122,10 +113,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		rebuildLabelOptions();
 
-		// Re-read pageSize in case it changed via ExtensionConfig listener
-		pageSize = (typeof ExtensionConfig.torrents_per_page === "number")
-			? ExtensionConfig.torrents_per_page : 20;
-
 		var filterState = document.getElementById("filter_state");
 		var filterTracker = document.getElementById("filter_tracker_host");
 		var filterLabel = document.getElementById("filter_label");
@@ -140,7 +127,7 @@ document.addEventListener("DOMContentLoaded", function () {
 			torrents.reverse();
 		}
 
-		// Apply filters first to get the full filtered list
+		// Filter torrents first
 		var filtered = [];
 		for (var i = 0, len = torrents.length; i < len; i++) {
 			var torrent = torrents[i];
@@ -161,59 +148,64 @@ document.addEventListener("DOMContentLoaded", function () {
 			if (fSearch && torrent.name.toLowerCase().indexOf(fSearch) === -1) {
 				continue;
 			}
-
 			filtered.push(torrent);
 		}
 
-		// Pagination calculation
-		var filteredCount = filtered.length;
-		if (pageSize > 0 && filteredCount > pageSize) {
-			totalPages = Math.ceil(filteredCount / pageSize);
-			if (currentPage > totalPages) currentPage = totalPages;
-			if (currentPage < 1) currentPage = 1;
-
-			var startIdx = (currentPage - 1) * pageSize;
-			var endIdx = startIdx + pageSize;
-			filtered = filtered.slice(startIdx, endIdx);
-
-			// Show pagination bar
-			paginationBar.style.display = "flex";
-			pageInfo.textContent = "Page " + currentPage + " of " + totalPages + " (" + filteredCount + " torrents)";
-			pagePrev.disabled = (currentPage <= 1);
-			pageNext.disabled = (currentPage >= totalPages);
-		} else {
+		// Pagination
+		TORRENTS_PER_PAGE = ExtensionConfig.torrents_per_page || 0;
+		if (TORRENTS_PER_PAGE === 0) {
+			// 0 means show all
 			totalPages = 1;
-			currentPage = 1;
-			// Hide pagination bar when all fit on one page
-			paginationBar.style.display = "none";
+			currentPage = 0;
+		} else {
+			totalPages = Math.max(1, Math.ceil(filtered.length / TORRENTS_PER_PAGE));
+			if (currentPage >= totalPages) currentPage = totalPages - 1;
+			if (currentPage < 0) currentPage = 0;
 		}
 
-		// Build HTML for current page
+		var startIdx = (TORRENTS_PER_PAGE === 0) ? 0 : currentPage * TORRENTS_PER_PAGE;
+		var endIdx = (TORRENTS_PER_PAGE === 0) ? filtered.length : startIdx + TORRENTS_PER_PAGE;
+		var pageItems = filtered.slice(startIdx, endIdx);
+
 		var htmlParts = [];
 		var labelValues = [];
-		var labelEnabled = Torrents.hasPlugin("Label");
-
-		for (var j = 0, jlen = filtered.length; j < jlen; j++) {
-			htmlParts.push(buildRowHtml(filtered[j]));
-			if (labelEnabled) {
-				labelValues.push({ id: filtered[j].id, label: filtered[j].label || "" });
-			}
+		for (var p = 0; p < pageItems.length; p++) {
+			htmlParts.push(buildRowHtml(pageItems[p]));
+			labelValues.push({ id: pageItems[p].id, label: pageItems[p].label || "" });
 		}
 
-		// Use DOMParser to safely convert string to nodes
+		// Use DOMParser to safely convert HTML string into DOM nodes (AMO-safe)
 		var parser = new DOMParser();
-		var doc = parser.parseFromString(htmlParts.join(""), 'text/html');
+		var doc = parser.parseFromString(htmlParts.join(""), "text/html");
 		torrentContainer.textContent = "";
 		while (doc.body.firstChild) {
 			torrentContainer.appendChild(doc.body.firstChild);
 		}
 
-		if (labelEnabled) {
-			for (var k = 0, klen = labelValues.length; k < klen; k++) {
-				var sel = torrentContainer.querySelector('.label_select[data-torrent-id="' + labelValues[k].id + '"]');
-				if (sel) sel.value = labelValues[k].label;
-			}
+		for (var j = 0, jlen = labelValues.length; j < jlen; j++) {
+			var sel = torrentContainer.querySelector('.label_select[data-torrent-id="' + labelValues[j].id + '"]');
+			if (sel) sel.value = labelValues[j].label;
 		}
+
+		// Update pagination controls
+		updatePaginationControls(filtered.length);
+	}
+
+	function updatePaginationControls(totalFiltered) {
+		var pageInfo = document.getElementById("page_info");
+		var prevBtn = document.getElementById("page_prev");
+		var nextBtn = document.getElementById("page_next");
+		var paginationDiv = document.getElementById("pagination");
+
+		if (TORRENTS_PER_PAGE === 0 || totalFiltered <= TORRENTS_PER_PAGE) {
+			paginationDiv.style.display = "none";
+			return;
+		}
+
+		paginationDiv.style.display = "";
+		pageInfo.textContent = "Page " + (currentPage + 1) + " / " + totalPages + " (" + totalFiltered + " torrents)";
+		prevBtn.disabled = (currentPage <= 0);
+		nextBtn.disabled = (currentPage >= totalPages - 1);
 	}
 
 	// ── Event Handlers (delegated) ──────────────────────────────────────
@@ -242,6 +234,11 @@ document.addEventListener("DOMContentLoaded", function () {
 			})
 			.error(function () {
 				debug_log("Failed: " + method);
+				// Refresh on error too so the UI re-syncs with the server.
+				// After an optimistic removal that the server rejected,
+				// forceFullUpdateNext() has already been called, so this
+				// refresh will re-fetch the full list and restore the row.
+				updateTableDelay(250);
 			});
 	}
 
@@ -301,7 +298,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		DelugeMethod(method, rowData.torrent, rmdata);
 	});
 
-// Delete button — show options
+	// Delete button — show options
 	DomHelper.on(torrentContainer, "click", ".main_actions .delete", function () {
 		// 1. Get the torrent data for this specific row
 		var rowData = getRowData(this);
@@ -323,34 +320,32 @@ document.addEventListener("DOMContentLoaded", function () {
 			var div = document.createElement("div");
 			div.className = "delete-options";
 
-			var aCancel = document.createElement("a");
-			aCancel.className = "rm_cancel";
-			aCancel.title = "Cancel";
+			var a1 = document.createElement("a");
+			a1.className = "rm_cancel";
+			a1.title = "Cancel";
+			var a2 = document.createElement("a");
+			a2.className = "rm_torrent_data";
+			a2.title = "Delete with data";
+			var a3 = document.createElement("a");
+			a3.className = "rm_torrent";
+			a3.title = "Remove torrent only";
+			div.appendChild(a1);
+			div.appendChild(a2);
+			div.appendChild(a3);
 
-			var aData = document.createElement("a");
-			aData.className = "rm_torrent_data";
-			aData.title = "Delete with data";
-
-			var aTorrent = document.createElement("a");
-			aTorrent.className = "rm_torrent";
-			aTorrent.title = "Remove torrent only";
-
-			div.appendChild(aCancel);
-			div.appendChild(aData);
-			div.appendChild(aTorrent);
 			td.appendChild(div);
 			DomHelper.hide(td);
 			DomHelper.fadeIn(td, 200);
 		});
 	});
 
-// Delete option clicks
+	// Delete option clicks
 	DomHelper.on(torrentContainer, "click", ".delete-options a", function (e) {
 		e.preventDefault();
 
 		var td = this.closest("td");
 		var deleteOpts = td.querySelector(".delete-options");
-		
+
 		// Prevent double-clicks that cause the Deluge server to crash
 		if (!deleteOpts || deleteOpts.dataset.clicked) return;
 		deleteOpts.dataset.clicked = "true";
@@ -359,6 +354,8 @@ document.addEventListener("DOMContentLoaded", function () {
 		if (!rowData) return;
 
 		var isCancel = this.classList.contains("rm_cancel");
+		var isDelete = this.classList.contains("rm_torrent") || this.classList.contains("rm_torrent_data");
+		var row      = this.closest(".torrent_row");
 
 		if (this.classList.contains("rm_torrent")) {
 			DelugeMethod("core.remove_torrent", rowData.torrent, false);
@@ -366,14 +363,29 @@ document.addEventListener("DOMContentLoaded", function () {
 			DelugeMethod("core.remove_torrent", rowData.torrent, true);
 		}
 
-		// Remove delete options and show actions again
+		// Optimistic removal — the existing update pipeline uses diff
+		// updates that never delete stale torrents, and event polling can
+		// take up to ~1s. Drop the row from local state and the DOM right
+		// away so the user sees the torrent disappear immediately. If the
+		// server ends up rejecting the delete, the forced full update
+		// (queued below via forceFullUpdateNext) will re-add it.
+		if (isDelete) {
+			Torrents.removeById(rowData.torrent.id);
+			Torrents.forceFullUpdateNext();
+			renderGlobalInformation();
+			if (row) {
+				DomHelper.fadeOut(row, 200, function () { row.remove(); });
+			}
+			return;
+		}
+
+		// Cancel path: just hide the delete options and restore the main
+		// action buttons.
 		DomHelper.fadeOut(deleteOpts, 200, function () {
 			deleteOpts.remove();
 			var actions = td.querySelector(".main_actions");
 			if (actions) {
 				DomHelper.fadeIn(actions, 200, function () {
-					// Only force an immediate refresh if the user clicked Cancel.
-					// If they deleted a torrent, DelugeMethod handles the refresh safely.
 					if (isCancel) {
 						resumeTableRefresh();
 						updateTable();
@@ -452,13 +464,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		sortEl.addEventListener("change", function () {
 			localStorage.sortColumn = this.value;
-			currentPage = 1;
+			currentPage = 0;
 			renderTable();
 		});
 
 		sortInvert.addEventListener("change", function () {
 			localStorage.sortMethod = this.checked ? "desc" : "asc";
-			currentPage = 1;
+			currentPage = 0;
 			renderTable();
 		});
 
@@ -466,7 +478,7 @@ document.addEventListener("DOMContentLoaded", function () {
 			if (el) {
 				el.addEventListener("change", function () {
 					localStorage[this.id] = this.value;
-					currentPage = 1;
+					currentPage = 0;
 					renderTable();
 				});
 			}
@@ -478,11 +490,14 @@ document.addEventListener("DOMContentLoaded", function () {
 		var searchEl = document.getElementById("search_name");
 		if (!searchEl) return;
 
+		// Restore last search from session (not persisted across reopens)
+		var clearBtn = null;
+
 		var debounceTimer = null;
 		searchEl.addEventListener("input", function () {
 			clearTimeout(debounceTimer);
 			debounceTimer = setTimeout(function () {
-				currentPage = 1;
+				currentPage = 0;
 				renderTable();
 			}, 150);
 		});
@@ -491,47 +506,32 @@ document.addEventListener("DOMContentLoaded", function () {
 		searchEl.addEventListener("keydown", function (e) {
 			if (e.keyCode === 27 && this.value) {
 				this.value = "";
-				currentPage = 1;
+				currentPage = 0;
 				renderTable();
 				e.preventDefault();
 			}
 		});
 	}());
 
-	// ── Plugin-aware UI ────────────────────────────────────────────────
-	// Hide UI elements that depend on a plugin we couldn't detect on the server.
-	function applyPluginVisibility() {
-		var labelGroup = document.querySelector(".label-filter-group");
-		if (labelGroup) {
-			labelGroup.style.display = Torrents.hasPlugin("Label") ? "" : "none";
-		}
-	}
-	document.addEventListener("Torrents:pluginsChanged", function () {
-		applyPluginVisibility();
-		renderTable(); // rebuild rows so the per-row label cell appears/disappears
-	});
-	// Initial state: hide until we know the answer (avoid flash of useless UI)
+	// ── Pagination Controls ────────────────────────────────────────────
 	(function () {
-		var labelGroup = document.querySelector(".label-filter-group");
-		if (labelGroup) labelGroup.style.display = "none";
+		var prevBtn = document.getElementById("page_prev");
+		var nextBtn = document.getElementById("page_next");
+
+		prevBtn.addEventListener("click", function () {
+			if (currentPage > 0) {
+				currentPage--;
+				renderTable();
+			}
+		});
+
+		nextBtn.addEventListener("click", function () {
+			if (currentPage < totalPages - 1) {
+				currentPage++;
+				renderTable();
+			}
+		});
 	}());
-
-	// ── Pagination Controls ─────────────────────────────────────────────
-	pagePrev.addEventListener("click", function () {
-		if (currentPage > 1) {
-			currentPage--;
-			renderTable();
-			torrentContainer.scrollIntoView({ behavior: "smooth", block: "start" });
-		}
-	});
-
-	pageNext.addEventListener("click", function () {
-		if (currentPage < totalPages) {
-			currentPage++;
-			renderTable();
-			torrentContainer.scrollIntoView({ behavior: "smooth", block: "start" });
-		}
-	});
 
 	// ── Event Polling ──────────────────────────────────────────────────
 	// Poll Deluge events between full/diff updates to catch add/remove quickly
@@ -543,6 +543,7 @@ document.addEventListener("DOMContentLoaded", function () {
 			var req = Torrents.pollEvents();
 			if (req && req.success) {
 				req.success(function () {
+					// Re-render in case events changed the torrent list
 					if (Torrents.getAll().length > 0) {
 						renderTable();
 						renderGlobalInformation();
@@ -609,6 +610,76 @@ document.addEventListener("DOMContentLoaded", function () {
 		else if (request.msg === "extension_deactivated") deactivated();
 		else if (request.msg === "auto_login_failed") autoLoginFailed();
 	});
+
+	// ── Tab Navigation ─────────────────────────────────────────────────
+	// Second & third tabs ("Search Indexers" and "History") are only shown
+	// when Prowlarr is enabled.
+	(function () {
+		var tabNav     = document.getElementById("tab_nav");
+		var searchTab  = tabNav ? tabNav.querySelector('[data-tab="search"]')  : null;
+		var historyTab = tabNav ? tabNav.querySelector('[data-tab="history"]') : null;
+		var torrentsTab = tabNav ? tabNav.querySelector('[data-tab="torrents"]') : null;
+		if (!tabNav || !searchTab || !historyTab || !torrentsTab) return;
+
+		function applyProwlarrVisibility() {
+			var enabled = !!ExtensionConfig.prowlarr_enabled;
+			if (enabled) {
+				tabNav.classList.add("has-tabs");
+				searchTab.style.display  = "";
+				historyTab.style.display = "";
+				if (typeof ProwlarrSearch !== "undefined") ProwlarrSearch.init();
+			} else {
+				searchTab.style.display  = "none";
+				historyTab.style.display = "none";
+				// If the user just disabled it while sitting on one of the
+				// Prowlarr tabs, bounce them back to the torrents view.
+				if (searchTab.classList.contains("active") ||
+				    historyTab.classList.contains("active")) {
+					activateTab("torrents");
+				}
+				tabNav.classList.remove("has-tabs");
+			}
+		}
+
+		function activateTab(name) {
+			var tabs   = tabNav.querySelectorAll(".tab");
+			var panels = document.querySelectorAll(".tab-panel");
+			for (var i = 0; i < tabs.length; i++) {
+				tabs[i].classList.toggle("active", tabs[i].getAttribute("data-tab") === name);
+			}
+			for (var j = 0; j < panels.length; j++) {
+				panels[j].classList.toggle("active", panels[j].id === "tab-" + name);
+			}
+			if (name === "search") {
+				document.dispatchEvent(new Event("ProwlarrTabActivated"));
+			} else if (name === "history") {
+				document.dispatchEvent(new Event("ProwlarrHistoryTabActivated"));
+			}
+		}
+
+		tabNav.addEventListener("click", function (e) {
+			var t = e.target.closest(".tab");
+			if (!t) return;
+			e.preventDefault();
+			var name = t.getAttribute("data-tab");
+			if (name) activateTab(name);
+		});
+
+		// Allow other modules (e.g. history-replay) to request a tab switch
+		document.addEventListener("SwitchTab", function (e) {
+			if (e && e.detail) activateTab(e.detail);
+		});
+
+		chrome.storage.onChanged.addListener(function (changes) {
+			if (changes.prowlarr_enabled) applyProwlarrVisibility();
+		});
+
+		if (typeof ExtensionConfig !== "undefined" &&
+			Object.prototype.hasOwnProperty.call(ExtensionConfig, "prowlarr_enabled")) {
+			applyProwlarrVisibility();
+		}
+		document.addEventListener("ExtensionConfigReady", applyProwlarrVisibility);
+	}());
 
 	checkStatus();
 });

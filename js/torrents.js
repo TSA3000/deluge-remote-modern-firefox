@@ -13,8 +13,6 @@ var Torrents = (function () {
 	var torrentMap = {};
 	var globalInformation = {};
 	var availableLabels = [];
-	var enabledPlugins = [];
-	var pluginsFetched = false;
 
 	var eventsRegistered = false;
 	var pollCount = 0;
@@ -48,16 +46,32 @@ var Torrents = (function () {
 	pub.getById = function (val) { return torrentMap[val] || false; };
 	pub.getGlobalInformation = function () { return globalInformation; };
 	pub.getLabels = function () { return availableLabels; };
-	pub.getEnabledPlugins = function () { return enabledPlugins.slice(); };
-	pub.hasPlugin = function (name) {
-		// Case-insensitive match — Deluge plugin names sometimes differ in case
-		var n = String(name).toLowerCase();
-		for (var i = 0; i < enabledPlugins.length; i++) {
-			if (String(enabledPlugins[i]).toLowerCase() === n) return true;
+
+	/**
+	 * Remove a torrent from the local state and update global counters.
+	 * Used both for optimistic UI removal when the user clicks delete, and
+	 * by the TorrentRemovedEvent handler. Idempotent — double-removal is a
+	 * no-op.
+	 */
+	pub.removeById = function (id) {
+		var existing = torrentMap[id];
+		if (!existing) return false;
+		delete torrentMap[id];
+		for (var i = torrents.length - 1; i >= 0; i--) {
+			if (torrents[i].id === id) { torrents.splice(i, 1); break; }
 		}
-		return false;
+		if (globalInformation.all) globalInformation.all--;
+		var state = (existing.state || "").toLowerCase();
+		if (state && globalInformation[state]) globalInformation[state]--;
+		return true;
 	};
-	pub.arePluginsKnown = function () { return pluginsFetched; };
+
+	/**
+	 * Force the next pub.update() call to do a full refresh rather than a
+	 * diff. Used after destructive actions (delete) so the client state
+	 * fully reconciles with the server's.
+	 */
+	pub.forceFullUpdateNext = function () { pollCount = 0; };
 
 	pub.cleanup = function () {
 		torrents = [];
@@ -68,8 +82,6 @@ var Torrents = (function () {
 		pub.cleanup();
 		pollCount = 0;
 		eventsRegistered = false;
-		pluginsFetched = false;
-		enabledPlugins = [];
 	};
 
 	// Entry point called by popup.js — decides full vs diff
@@ -97,30 +109,8 @@ var Torrents = (function () {
 
 				processFilters(response.filters);
 				registerEventsOnce();
-				fetchPluginsOnce();
 				response = null;
 				debug_log("Full update:", torrents.length, "torrents");
-			});
-	}
-
-	function fetchPluginsOnce() {
-		if (pluginsFetched) return;
-		Deluge.api("core.get_enabled_plugins", [], { timeout: 5000 })
-			.success(function (plugins) {
-				enabledPlugins = Array.isArray(plugins) ? plugins : [];
-				pluginsFetched = true;
-				debug_log("Enabled plugins:", enabledPlugins);
-				// Notify the popup so it can re-render plugin-dependent UI
-				try {
-					document.dispatchEvent(new CustomEvent("Torrents:pluginsChanged", {
-						detail: { plugins: enabledPlugins.slice() }
-					}));
-				} catch (_) { /* CustomEvent unsupported — ignore */ }
-			})
-			.error(function () {
-				// API call failed — assume plugins unknown, leave UI in safe default
-				pluginsFetched = true; // Don't keep retrying
-				debug_log("Failed to fetch enabled plugins");
 			});
 	}
 
@@ -239,14 +229,7 @@ var Torrents = (function () {
 		debug_log("Event:", evtName, args);
 		switch (evtName) {
 			case "TorrentRemovedEvent":
-				var rid = args[0];
-				if (torrentMap[rid]) {
-					delete torrentMap[rid];
-					for (var i = torrents.length - 1; i >= 0; i--) {
-						if (torrents[i].id === rid) { torrents.splice(i, 1); break; }
-					}
-					if (globalInformation.all) globalInformation.all--;
-				}
+				pub.removeById(args[0]);
 				break;
 			case "TorrentAddedEvent":
 				// Force a full refresh on next update to pick up the new torrent

@@ -2,101 +2,98 @@
 
 ---
 
-## v1.4.0 — Performance, Search, Setup Polish & Plugin Detection
-*2026-04-16*
-
-Big release mirroring the Chrome v2.6.0 update. Rolls up 4 major areas of work: API performance overhaul, search, setup page polish, and server plugin detection.
-
-### New Features
-
-#### Search by Name
-New search input at the top of the popup filters the torrent list in real time (150ms debounce). Press `Escape` to clear. Combines with existing State, Tracker, and Label filters.
-
-#### Setup Page Polish
-- **Live URL preview** — As you type, a preview box shows the exact endpoint URL being built (e.g. `http://192.168.1.14:8112/json`). Helps catch typos before saving.
-- **Password show/hide toggle** — Eye icon next to the password field.
-- **Clearer base path help** — Inline hint explains the base path field is only needed for reverse proxies, with examples.
-- **HTTP warning panel** — When HTTP protocol is selected, an inline warning appears with instructions for adding a Firefox HTTPS-Only Mode exception.
-- **Enhanced Test Connection feedback** — Color-coded result (green ✓ / red ✗) with specific error messages.
-
-#### Label Plugin Detection
-The extension now queries `core.get_enabled_plugins` on the first successful connection. If the Label plugin is not enabled on the Deluge server, the entire Label UI is hidden (per-row dropdowns + toolbar filter).
-
-### Performance
-
-#### Diff-Based Polling
-Subsequent polls use `core.get_torrents_status` with `diff=true`, returning only fields that changed. For large libraries (1000+ torrents) this reduces payload by 80-95%.
-
-#### Event-Driven Updates
-Subscribes to Deluge's event system — `TorrentAddedEvent`, `TorrentRemovedEvent`, `TorrentStateChangedEvent`, `TorrentFinishedEvent`, `SessionPausedEvent`, `SessionResumedEvent` — and polls `web.get_events` every second.
-
-#### Trimmed Request Payload
-Removed 5 unused fields — about 22% less data per torrent.
+## v1.5.1 — Prowlarr Search Table Fix
+*2026-04-18*
 
 ### Bug Fixes
 
-- Fixed `AbortError: signal is aborted without reason` uncaught rejection from API timeouts
-- Raised API timeouts from 1500-2000ms to 5000ms
-
-### Files Changed
-
-| File | Change |
-|---
-
-## v1.4.2 — AMO Validator Fix
-*2026-04-16*
-
-### Bug Fixes
-
-- **Removed `innerHTML` in options.js** — AMO validator flagged an unsafe `innerHTML` assignment in the status message handler (line 205). Replaced with safe DOM construction using `createElement("br")`, `createTextNode()`, and `appendChild()`. Functionally identical — the status message displays the same way, just built from safe DOM nodes instead of HTML string concatenation.
+- **Prowlarr search results collapsed into the Title cell** — In v1.5.0, all row data (Indexer, Size, Age, S/L) rendered inside the first `.p_col_title` cell instead of separate columns. Root cause was the DOMParser-based row builder: when parsing an HTML string containing `<tr>` elements inside a `<div>` wrapper, the browser's HTML parser hoists the `<tr>` out (it's not a valid child of `<div>`), collapsing the whole row. Fixed by rewriting `buildRow()` to return a real `HTMLTableRowElement` built with `createElement`/`appendChild` — no HTML string parsing at all. This is also AMO's recommended pattern for dynamic DOM construction.
 
 ### Files Changed
 
 | File | Change |
 |---|---|
-| `js/options.js` | `statusEl.innerHTML = ...` replaced with `createTextNode` + `createElement("br")` + `appendChild` loop |
-| `manifest.json` | Version bumped to `1.4.2` |
-| `RELEASE_NOTES.md` | This entry |
+| `js/prowlarr_search.js` | `buildRow()` returns a real `<tr>` built with `createElement`; `renderResults()` uses `DocumentFragment` + `appendChild`; history list and indexer multi-select also converted; removed unused `replaceChildrenHTML()` / `htmlToNodes()` helpers |
+| `manifest.json` | Version bumped to `1.5.1` |
 
-### Note
+---
 
-This is a Firefox-only release. The Chrome version doesn't need this change because the Chrome Web Store doesn't enforce the same CSP-related `innerHTML` restrictions, though we may mirror this fix in a future Chrome release for defense-in-depth.
+## v1.5.0 — Prowlarr Integration & Optimistic Delete
+*2026-04-18*
+
+Mirrors the Chrome v2.8.0 release. Rolls up auto-reconnect, Prowlarr indexer search, and optimistic torrent deletion.
+
+### New Features
+
+#### Prowlarr Search Integration
+Full Prowlarr indexer search from the popup — no need to leave the extension.
+
+- **Tabbed popup** — New tab navigation: Torrents | Search Indexers | History. Tabs only appear when Prowlarr is enabled in Options.
+- **Search indexers** — Enter a query, select category and indexers, get results with name, size, seeders, leechers, and age. Click to grab a release — Prowlarr forwards it to your configured download client.
+- **Indexer multi-select** — Choose which indexers to search or leave blank for all. Indexer list fetched from Prowlarr API with retry on tab activation.
+- **Sortable results** — Click column headers to sort by name, size, seeders, leechers, or age.
+- **Search history** — Last 50 searches persisted in `chrome.storage.local` with a dedicated History tab.
+- **Encrypted API key** — Prowlarr API key stored with the same AES-GCM encryption as the Deluge password.
+- **Prowlarr options** — Full setup in Options page: protocol, host, port, base path, API key (with show/hide toggle), results limit, live URL preview.
+
+#### Optimistic Torrent Deletion
+- When you delete a torrent, the row fades out and disappears immediately instead of waiting for the next poll to confirm the removal. If the server rejects the delete, the next forced full update restores the row.
+- New `Torrents.removeById()` method drops a torrent from local state
+- New `Torrents.forceFullUpdateNext()` forces next poll to be a full refresh
+
+#### Auto-Reconnect to Daemon
+- When the WebUI loses its connection to the Deluge daemon (restart, network interruption), the extension now fetches the host list and reconnects automatically
+
+### AMO Compliance
+
+All `innerHTML` usage replaced with safe DOM methods (`createElement`, `textContent`, `appendChild`). Firefox AMO validator enforces this strictly — Chrome's `innerHTML` approach won't pass Mozilla review.
+
+### Technical Details
+
+- `ProwlarrAPI` in background.js — mirrors `DelugeAPI` pattern with endpoint builder, fetch wrapper, AbortController support, and `waitForConfig()` cold-start guard
+- `Prowlarr` module (`js/prowlarr.js`) — popup-side API client, proxies all calls through the background service
+- `ProwlarrSearch` module (`js/prowlarr_search.js`) — handles search tab UI, indexer loading, result rendering, history management
+- `currentProwlarrSearchController` — allows cancelling in-flight searches from the popup
+- `_configReady` promise in `background.js` — prevents Prowlarr calls firing before `loadConfig()` completes during cold start
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `js/prowlarr.js` | New — Prowlarr API client module |
+| `js/prowlarr_search.js` | New — Search/History tab controller (DOM-safe for AMO) |
+| `css/prowlarr.css` | New — Tab navigation + search UI styling |
+| `js/background.js` | Added `ProwlarrAPI`, `_configReady` promise, Prowlarr message handlers, `connectToDaemon()` |
+| `js/popup.js` | Tab switching, Prowlarr visibility, optimistic delete with `removeById()`, innerHTML replaced with DOM-safe methods |
+| `js/torrents.js` | Added `removeById()`, `forceFullUpdateNext()` |
+| `js/options.js` | Prowlarr setup section, API key encryption, URL preview, innerHTML replaced with `createElement`/`appendChild` |
+| `js/global_options.js` | Prowlarr defaults (protocol, ip, port, base, api_key, results_limit) |
+| `popup.html` | Tab nav, search/history tab panels, Prowlarr script includes |
+| `options.html` | Prowlarr fieldset with all config fields |
+| `manifest.json` | Version bumped to `1.5.0` |
+
+---
+
+## v1.4.2 — AMO Validator Fix
+*2026-04-16*
+
+- Replaced `innerHTML` in `options.js` status message handler with safe DOM construction
 
 ---
 
 ## v1.4.1 — Pagination Dark Mode Fix
 *2026-04-16*
 
-### Bug Fixes
-
-- **Pagination bar appeared light in dark themes** — The pagination bar and its Prev/Next buttons rendered with a light gradient background in all dark themes, including System (OS-level dark mode). The existing dark theme rules in `theme-base.css` didn't override the `background-image: linear-gradient(...)` on the pagination container, and they didn't target System theme at all (which uses `@media prefers-color-scheme` rather than a `data-theme` attribute).
-
-### Fix
-
-- Added explicit overrides for `[data-theme="dark"]`, `[data-theme="solarized"]`, `[data-theme="nord"]`, and `[data-theme="dracula"]` that set `background-image: none` plus the proper dark background color
-- Added `@media (prefers-color-scheme: dark)` block covering `html:not([data-theme])` and `html[data-theme="system"]` so OS-level dark mode applies the same dark styling
-
-### Files Changed
-
-| File | Change |
-|---|---|
-| `css/theme-base.css` | Added pagination dark-mode rules for all themes + System |
-| `manifest.json` | Version bumped to `1.4.1` |
-| `RELEASE_NOTES.md` | This entry |
+- Fixed pagination bar appearing light in dark themes (including System/OS dark mode)
 
 ---
 
-|---|
-| `js/torrents.js` | Diff polling, events, trimmed KEYS, plugin detection |
-| `js/popup.js` | Search filter, event polling, conditional label rendering |
-| `js/deluge.js` | Silent default catch, AbortError normalization |
-| `js/options.js` | URL preview, password toggle, enhanced test feedback |
-| `popup.html` | Search input, `.label-filter-group` wrapper |
-| `options.html` | Polished Basic Setup fieldset |
-| `css/popup.css` | Search box styling |
-| `css/options.css` | Field hints, URL preview, inline warning styles |
-| `css/theme-base.css` | Dark theme counterparts |
-| `manifest.json` | Version bumped to `1.4.0` |
+## v1.4.0 — Performance, Search, Setup Polish & Plugin Detection
+*2026-04-16*
+
+- Search by name, diff polling, events, trimmed fields
+- Live URL preview, password toggle, HTTP warning, better Test Connection feedback
+- AbortError bugfix, timeouts raised to 5s
 
 ---
 
@@ -118,7 +115,7 @@ This is a Firefox-only release. The Chrome version doesn't need this change beca
 ## v1.1.x — innerHTML Security Fixes & Test Connection
 *2026-04-11*
 
-- Replaced all `innerHTML` with safe DOM methods (createElement, textContent, DOMParser)
+- Replaced all `innerHTML` with safe DOM methods
 - Added Test Connection button
 
 ---

@@ -6,6 +6,7 @@
 		<link rel="stylesheet" href="css/buttons.css" type="text/css" media="screen" />
 		<link rel="stylesheet" href="css/master.css" type="text/css" media="screen" />
 		<link rel="stylesheet" href="css/popup.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/prowlarr.css" type="text/css" media="screen" />
 		<link rel="stylesheet" href="css/theme-base.css" type="text/css" media="screen" />
 		<link rel="stylesheet" href="css/themes/dark.css" type="text/css" media="screen" />
 		<link rel="stylesheet" href="css/themes/solarized.css" type="text/css" media="screen" />
@@ -16,10 +17,12 @@
 		<script src="js/global_options.js" type="text/javascript" charset="utf-8"></script>
 		<script src="js/dom_helper.js" type="text/javascript" charset="utf-8"></script>
 		<script src="js/deluge.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/prowlarr.js" type="text/javascript" charset="utf-8"></script>
 		<script src="js/torrent.js" type="text/javascript" charset="utf-8"></script>
 		<script src="js/timer.js" type="text/javascript" charset="utf-8"></script>
 		<script src="js/torrents.js" type="text/javascript" charset="utf-8"></script>
 		<script src="js/debug_log.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/prowlarr_search.js" type="text/javascript" charset="utf-8"></script>
 		<script src="js/popup.js" type="text/javascript" charset="utf-8"></script>
 	</head>
 	<body>
@@ -48,35 +51,102 @@
 			<span class="queued-label">Queued</span>: <span class="data queued">0</span>
 		</div>
 		<div style="clear: both;"></div>
-		<div id="filters">
-			<span>Search:</span>
-				<input type="text" id="search_name" placeholder="Filter by name..." />
-			<br>
-			<span>Sort:</span>
-				<select id="sort">
-					<option value="name">Name</option>
-					<option value="size">Size</option>
-					<option value="progress">Progress %</option>
-					<option value="speed">Speed</option>
-					<option value="eta">ETA</option>
-					<option value="position">Position</option>
-				</select>
-				<input type="checkbox" id="sort_invert" /><label for="sort_invert">Invert</label>
-			<br>
-			<span>State:</span>
-				<select id="filter_state"></select>
-			<span>Tracker:</span>
-				<select id="filter_tracker_host"></select>
-			<span class="label-filter-group">
+		<nav id="tab_nav">
+			<a href="#tab-torrents" class="tab active" data-tab="torrents">Torrents</a>
+			<a href="#tab-search"   class="tab"        data-tab="search">Search Indexers</a>
+			<a href="#tab-history"  class="tab"        data-tab="history">History</a>
+		</nav>
+		<div id="tab-torrents" class="tab-panel active">
+			<div id="filters">
+				<span>Search:</span>
+					<input type="text" id="search_name" placeholder="Filter by name..." />
+				<br>
+				<span>Sort:</span>
+					<select id="sort">
+						<option value="name">Name</option>
+						<option value="size">Size</option>
+						<option value="progress">Progress %</option>
+						<option value="speed">Speed</option>
+						<option value="eta">ETA</option>
+						<option value="position">Position</option>
+					</select>
+					<input type="checkbox" id="sort_invert" /><label for="sort_invert">Invert</label>
+				<br>
+				<span>State:</span>
+					<select id="filter_state"></select>
+				<span>Tracker:</span>
+					<select id="filter_tracker_host"></select>
 				<span>Label:</span>
-				<select id="filter_label"></select>
-			</span>
+					<select id="filter_label"></select>
+			</div>
+			<div id="torrent_container"></div>
+			<div id="pagination">
+				<button type="button" id="page_prev" disabled>◀ Prev</button>
+				<span id="page_info">Page 1 / 1</span>
+				<button type="button" id="page_next" disabled>Next ▶</button>
+			</div>
 		</div>
-		<div id="torrent_container"></div>
-		<div id="pagination">
-			<button id="page_prev" title="Previous page">&laquo; Prev</button>
-			<span id="page_info"></span>
-			<button id="page_next" title="Next page">Next &raquo;</button>
+		<div id="tab-search" class="tab-panel">
+			<div id="prowlarr_header">
+				<a id="prowlarr_webui_link" target="_blank" title="Open Prowlarr web UI">Prowlarr</a>
+				<span id="prowlarr_result_count">0 results</span>
+			</div>
+			<form id="prowlarr_form">
+				<div class="row">
+					<input type="text" id="prowlarr_query" placeholder="Search private indexers…" autocomplete="off" />
+					<button type="submit" id="prowlarr_search_btn" class="clean-gray" title="Search">
+						<span class="btn-label-search">Search</span>
+						<span class="btn-label-cancel">Cancel</span>
+						<span class="btn-spinner" aria-hidden="true"></span>
+					</button>
+				</div>
+				<div class="row">
+					<label>Indexers:</label>
+					<div class="ms-dropdown" id="prowlarr_indexer_ms">
+						<button type="button" class="ms-toggle" id="prowlarr_indexer_toggle">
+							<span class="ms-label" id="prowlarr_indexer_label">All indexers</span>
+							<span class="ms-caret">▾</span>
+						</button>
+						<div class="ms-menu" id="prowlarr_indexer_menu">
+							<label class="ms-item ms-item-all">
+								<input type="checkbox" id="prowlarr_indexer_all" checked />
+								<span>All indexers</span>
+							</label>
+							<div class="ms-divider"></div>
+							<div class="ms-items" id="prowlarr_indexer_items">
+								<div class="ms-loading">Loading indexers…</div>
+							</div>
+						</div>
+					</div>
+					<label for="prowlarr_category">Category:</label>
+					<select id="prowlarr_category"></select>
+				</div>
+			</form>
+			<div id="prowlarr_status" class="prowlarr-status"></div>
+			<table id="prowlarr_results">
+				<thead>
+					<tr>
+						<th data-sort="title">Title</th>
+						<th data-sort="indexer">Indexer</th>
+						<th data-sort="size">Size</th>
+						<th data-sort="age">Age</th>
+						<th data-sort="seeders" class="sort-desc">S / L</th>
+						<th>&nbsp;</th>
+					</tr>
+				</thead>
+				<tbody id="prowlarr_results_body">
+					<tr><td colspan="6" class="p_empty">No results yet — enter a search above.</td></tr>
+				</tbody>
+			</table>
+		</div>
+		<div id="tab-history" class="tab-panel">
+			<div id="prowlarr_history_header">
+				<span class="ph-title">Search History</span>
+				<button type="button" id="prowlarr_history_clear" class="ph-clear">Clear all</button>
+			</div>
+			<div id="prowlarr_history_list">
+				<div class="ph-empty">No searches yet.</div>
+			</div>
 		</div>
 	</body>
 </html>

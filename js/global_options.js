@@ -1,25 +1,34 @@
 var ExtensionConfig = {
 	address_protocol: "https",
-	address_ip:       "",
-	address_port:     "",
-	address_base:     "",
-	password:         "",
-	handle_magnets:   true,
-	handle_torrents:  true,
-	context_menu:     false,
-	badge_timeout:    250,
+	address_ip: "",
+	address_port: "",
+	address_base: "",
+	password: "",
+	handle_magnets: true,
+	handle_torrents: true,
+	context_menu: false,
+	badge_timeout: 250,
 	refresh_interval: 3000,
-	debug_mode:       false,
-	dark_mode:        "system",
-	icon_pack:        "classic",
-	torrents_per_page: 20
+	debug_mode: false,
+	dark_mode: "system",
+	icon_pack: "classic",
+	torrents_per_page: 0,
+
+	// ── Prowlarr integration ──────────────────────────────────────────
+	prowlarr_enabled:       false,
+	prowlarr_protocol:      "http",
+	prowlarr_ip:            "",
+	prowlarr_port:          "9696",
+	prowlarr_base:          "",
+	prowlarr_api_key:       "",
+	prowlarr_results_limit: 100
 };
 
 chrome.storage.onChanged.addListener(function (changes, namespace) {
 	for (var key in changes) {
 		ExtensionConfig[key] = changes[key].newValue;
 		if (key === "context_menu") {
-			chrome.runtime.sendMessage({ method: "context_menu", enabled: changes[key].newValue }).catch(function(){});
+			chrome.runtime.sendMessage({ method: "context_menu", enabled: changes[key].newValue }).catch(function () { });
 		}
 		if (key === "dark_mode") {
 			applyDarkMode(changes[key].newValue);

@@ -367,6 +367,119 @@
                 />
               </td>
             </tr>
+            <tr>
+              <td>
+                <label class="normal" for="prowlarr_enabled"
+                  >Enable Prowlarr<span
+                    ><br />Connect to a Prowlarr server to search private
+                    indexers directly from the popup</span
+                  ></label
+                >
+              </td>
+              <td>
+                <input
+                  id="prowlarr_enabled"
+                  name="prowlarr_enabled"
+                  type="checkbox"
+                  value="0"
+                />
+              </td>
+            </tr>
+          </table>
+        </fieldset>
+        <fieldset id="prowlarr_fieldset" style="display: none;">
+          <legend>Prowlarr Integration</legend>
+          <table>
+            <tr>
+              <td colspan="2">
+                <p style="margin: 4px 0 8px; font-size: 12px; color: #666;">
+                  Prowlarr is an indexer aggregator. Point this at your running
+                  Prowlarr instance and create an API key at
+                  <em>Settings → General → Security</em>.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <label>Address</label>
+              </td>
+              <td>
+                <select id="prowlarr_protocol">
+                  <option value="http" selected="selected">http</option>
+                  <option value="https">https</option>
+                </select>
+                ://
+                <input id="prowlarr_ip" placeholder="127.0.0.1" size="15" />
+                :
+                <input id="prowlarr_port" placeholder="9696" size="5" />
+                /
+                <input id="prowlarr_base" placeholder="" size="10" />
+                <span class="field-hint">
+                  <br />Base path only for reverse proxies (e.g.
+                  <code>https://yourdomain.com/<strong>prowlarr</strong>/</code>).
+                  Leave empty for direct connection.
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td></td>
+              <td>
+                <div id="prowlarr_url_preview" class="url-preview-box">
+                  <span class="url-label">Endpoint:</span>
+                  <code id="prowlarr_url_preview_value">http://:9696/api/v1/</code>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <label>API Key</label>
+              </td>
+              <td>
+                <input id="prowlarr_api_key" size="40" type="password" />
+                <button
+                  type="button"
+                  id="prowlarr_api_key_toggle"
+                  class="icon-btn"
+                  title="Show/hide API key"
+                  aria-label="Show API key"
+                >👁</button>
+                <span class="field-hint">
+                  <br />Stored encrypted with AES-GCM, same as your Deluge
+                  password.
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <label class="normal" for="prowlarr_results_limit"
+                  >Result limit<span
+                    ><br />Max search results returned per query</span
+                  ></label
+                >
+              </td>
+              <td>
+                <select id="prowlarr_results_limit">
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100" selected="selected">100</option>
+                  <option value="250">250</option>
+                  <option value="500">500</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td></td>
+              <td>
+                <button
+                  type="button"
+                  id="test_prowlarr_connection"
+                  class="clean-gray"
+                >
+                  Test Connection
+                </button>
+                <span id="test_prowlarr_result"></span>
+              </td>
+            </tr>
           </table>
         </fieldset>
         <div class="buttons">

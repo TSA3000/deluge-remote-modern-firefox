@@ -2,11 +2,18 @@
 var _originalPassword = "";
 var _storedEncryptedPassword = "";
 
+// Same pattern for the Prowlarr API key
+var _originalProwlarrApiKey = "";
+var _storedEncryptedProwlarrApiKey = "";
+
 function saveOptions(callback) {
 	var plainPassword = document.getElementById("password").value;
 	var passwordChanged = (plainPassword !== _originalPassword);
 
-	function doSave(passwordValue) {
+	var plainProwlarrKey = document.getElementById("prowlarr_api_key").value;
+	var prowlarrKeyChanged = (plainProwlarrKey !== _originalProwlarrApiKey);
+
+	function doSave(passwordValue, prowlarrKeyValue) {
 		var settings = {
 			"address_protocol": document.getElementById("address_protocol").value,
 			"address_ip": document.getElementById("address_ip").value,
@@ -21,6 +28,15 @@ function saveOptions(callback) {
 			"dark_mode": document.getElementById("dark_mode").value,
 			"icon_pack": document.getElementById("icon_pack").value,
 			"torrents_per_page": parseInt(document.getElementById("torrents_per_page").value),
+
+			// ── Prowlarr ─────────────────────────────────────────────
+			"prowlarr_enabled":       document.getElementById("prowlarr_enabled").checked,
+			"prowlarr_protocol":      document.getElementById("prowlarr_protocol").value,
+			"prowlarr_ip":            document.getElementById("prowlarr_ip").value,
+			"prowlarr_port":          document.getElementById("prowlarr_port").value,
+			"prowlarr_base":          document.getElementById("prowlarr_base").value,
+			"prowlarr_results_limit": parseInt(document.getElementById("prowlarr_results_limit").value),
+
 			"version": chrome.runtime.getManifest().version
 		};
 
@@ -31,22 +47,40 @@ function saveOptions(callback) {
 			_storedEncryptedPassword = passwordValue;
 		}
 
+		// Only include Prowlarr API key if it changed
+		if (prowlarrKeyChanged) {
+			settings.prowlarr_api_key = prowlarrKeyValue;
+			_originalProwlarrApiKey = plainProwlarrKey;
+			_storedEncryptedProwlarrApiKey = prowlarrKeyValue;
+		}
+
 		chrome.storage.sync.set(settings, function () {
-			debug_log("Settings saved" + (passwordChanged ? " (password encrypted)" : ""));
+			debug_log("Settings saved" +
+				(passwordChanged ? " (password encrypted)" : "") +
+				(prowlarrKeyChanged ? " (prowlarr api key encrypted)" : "")
+			);
 			if (callback) callback();
 		});
 	}
 
-	if (passwordChanged) {
-		PasswordCrypto.encrypt(plainPassword).then(function (encryptedPassword) {
-			doSave(encryptedPassword);
-		}).catch(function (err) {
+	// Encrypt whichever secrets changed, chained through Promises
+	var pwPromise = passwordChanged
+		? PasswordCrypto.encrypt(plainPassword).catch(function (err) {
 			console.error("Failed to encrypt password:", err);
-			doSave(plainPassword);
-		});
-	} else {
-		doSave(null);
-	}
+			return plainPassword;
+		})
+		: Promise.resolve(null);
+
+	var pkPromise = prowlarrKeyChanged
+		? PasswordCrypto.encrypt(plainProwlarrKey).catch(function (err) {
+			console.error("Failed to encrypt Prowlarr API key:", err);
+			return plainProwlarrKey;
+		})
+		: Promise.resolve(null);
+
+	Promise.all([pwPromise, pkPromise]).then(function (values) {
+		doSave(values[0], values[1]);
+	});
 }
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -145,6 +179,103 @@ document.addEventListener("DOMContentLoaded", function () {
 			}
 		});
 	}
+
+	// ── Prowlarr: fieldset toggle, URL preview, API key toggle, test ───
+	var prowlarrEnableEl = document.getElementById("prowlarr_enabled");
+	var prowlarrFieldset = document.getElementById("prowlarr_fieldset");
+
+	function syncProwlarrFieldset() {
+		if (prowlarrEnableEl && prowlarrFieldset) {
+			prowlarrFieldset.style.display = prowlarrEnableEl.checked ? "" : "none";
+		}
+	}
+	if (prowlarrEnableEl) {
+		prowlarrEnableEl.addEventListener("change", syncProwlarrFieldset);
+	}
+
+	// Live preview of the Prowlarr endpoint URL
+	function updateProwlarrUrlPreview() {
+		var proto = document.getElementById("prowlarr_protocol").value || "http";
+		var ip    = document.getElementById("prowlarr_ip").value || "<ip-or-host>";
+		var port  = document.getElementById("prowlarr_port").value || "9696";
+		var base  = document.getElementById("prowlarr_base").value.trim();
+		var url = proto + "://" + ip + ":" + port + "/" + (base ? base + "/" : "") + "api/v1/";
+		var el = document.getElementById("prowlarr_url_preview_value");
+		if (el) el.textContent = url;
+	}
+	["prowlarr_protocol", "prowlarr_ip", "prowlarr_port", "prowlarr_base"].forEach(function (id) {
+		var el = document.getElementById(id);
+		if (!el) return;
+		el.addEventListener("input", updateProwlarrUrlPreview);
+		el.addEventListener("change", updateProwlarrUrlPreview);
+	});
+	updateProwlarrUrlPreview();
+
+	// Show/hide Prowlarr API key
+	var keyToggle = document.getElementById("prowlarr_api_key_toggle");
+	if (keyToggle) {
+		keyToggle.addEventListener("click", function () {
+			var input = document.getElementById("prowlarr_api_key");
+			if (input.type === "password") {
+				input.type = "text";
+				this.textContent = "🙈";
+				this.setAttribute("aria-label", "Hide API key");
+				this.title = "Hide API key";
+			} else {
+				input.type = "password";
+				this.textContent = "👁";
+				this.setAttribute("aria-label", "Show API key");
+				this.title = "Show API key";
+			}
+		});
+	}
+
+	// Test Prowlarr connection
+	var prowlarrTestBtn = document.getElementById("test_prowlarr_connection");
+	if (prowlarrTestBtn) {
+		prowlarrTestBtn.addEventListener("click", function () {
+			var btn = this;
+			var result = document.getElementById("test_prowlarr_result");
+			btn.disabled = true;
+			result.textContent = "Testing…";
+			result.className = "test-result testing";
+
+			saveOptions(function () {
+				chrome.runtime.sendMessage({ method: "check_prowlarr_status", timeout: 5000 }, function (response) {
+					btn.disabled = false;
+					if (chrome.runtime.lastError) {
+						result.textContent = "✗ Service worker not responding";
+						result.className = "test-result error";
+						return;
+					}
+					if (response && response.connected) {
+						var label = "✓ Connected";
+						if (response.version) label += " — v" + response.version;
+						result.textContent = label;
+						result.className = "test-result success";
+					} else if (response && response.reason === "auth") {
+						result.textContent = "✗ API key rejected";
+						result.className = "test-result error";
+					} else if (response && response.reason === "network") {
+						result.textContent = "✗ Cannot reach Prowlarr — check the address";
+						result.className = "test-result error";
+					} else if (response && response.reason === "timeout") {
+						result.textContent = "✗ Timed out";
+						result.className = "test-result error";
+					} else if (response && response.reason === "http") {
+						result.textContent = "✗ HTTP " + (response.status || "?") + " from Prowlarr";
+						result.className = "test-result error";
+					} else if (response && response.reason === "config") {
+						result.textContent = "✗ Address not configured";
+						result.className = "test-result error";
+					} else {
+						result.textContent = "✗ Connection failed";
+						result.className = "test-result error";
+					}
+				});
+			});
+		});
+	}
 });
 
 chrome.storage.onChanged.addListener(function (changes, namespace) {
@@ -197,10 +328,33 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 				var ip = document.getElementById("icon_pack");
 				messages.push("Icon pack set to " + ip.options[ip.selectedIndex].text + ".");
 				break;
+			case "prowlarr_enabled":
+				messages.push("Prowlarr integration " + (document.getElementById("prowlarr_enabled").checked ? "en" : "dis") + "abled!");
+				break;
+			case "prowlarr_protocol":
+			case "prowlarr_ip":
+			case "prowlarr_port":
+			case "prowlarr_base":
+				messages.push("Prowlarr address updated.");
+				break;
+			case "prowlarr_api_key":
+				messages.push("Prowlarr API key updated (encrypted).");
+				break;
+			case "prowlarr_results_limit":
+				var prl = document.getElementById("prowlarr_results_limit");
+				messages.push("Prowlarr result limit set to " + prl.options[prl.selectedIndex].text + ".");
+				break;
 		}
 	}
 
 	if (messages.length > 0) {
+		// Deduplicate so things like repeated "Prowlarr address updated." don't stack up
+		var seen = {};
+		messages = messages.filter(function (m) {
+			if (seen[m]) return false;
+			seen[m] = true;
+			return true;
+		});
 		var statusEl = document.getElementById("status-message");
 		statusEl.textContent = "";
 		for (var m = 0; m < messages.length; m++) {
@@ -236,6 +390,15 @@ chrome.storage.sync.get(function (items) {
 				document.getElementById("password").value = "";
 				_originalPassword = "";
 			});
+		} else if (key === "prowlarr_api_key") {
+			_storedEncryptedProwlarrApiKey = items[key];
+			PasswordCrypto.decrypt(items[key]).then(function (plainKey) {
+				document.getElementById("prowlarr_api_key").value = plainKey;
+				_originalProwlarrApiKey = plainKey;
+			}).catch(function () {
+				document.getElementById("prowlarr_api_key").value = "";
+				_originalProwlarrApiKey = "";
+			});
 		} else if (typeof items[key] === "boolean") {
 			el.checked = items[key];
 		} else {
@@ -255,4 +418,14 @@ chrome.storage.sync.get(function (items) {
 		var evt = new Event("input");
 		document.getElementById("address_protocol").dispatchEvent(new Event("change"));
 	}
+
+	// Sync the Prowlarr fieldset visibility and its URL preview once values
+	// are loaded from storage.
+	var prowlarrEnableEl = document.getElementById("prowlarr_enabled");
+	var prowlarrFieldset = document.getElementById("prowlarr_fieldset");
+	if (prowlarrEnableEl && prowlarrFieldset) {
+		prowlarrFieldset.style.display = prowlarrEnableEl.checked ? "" : "none";
+	}
+	var prowlarrProto = document.getElementById("prowlarr_protocol");
+	if (prowlarrProto) prowlarrProto.dispatchEvent(new Event("change"));
 });
