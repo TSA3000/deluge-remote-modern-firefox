@@ -290,6 +290,14 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 	var prowlarrOn = !!(prowlarrEnabledEl && prowlarrEnabledEl.checked);
 	for (var key in changes) {
 		var storageChange = changes[key];
+		// saveOptions() writes the full settings object on every Apply.
+		// Firefox's storage.sync fires onChanged for every key included in
+		// the set() call even when the value is unchanged (oldValue ===
+		// newValue), which would otherwise flood the status block with
+		// "Address protocol updated.", "Torrents per page set to 20.", etc.
+		// after editing a single field. Only report messages for keys
+		// whose value actually changed.
+		if (storageChange.oldValue === storageChange.newValue) continue;
 		debug_log('Storage key "' + key + '" changed. Old: "' + storageChange.oldValue + '", New: "' + storageChange.newValue + '"');
 
 		switch (key) {

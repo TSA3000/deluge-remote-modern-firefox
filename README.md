@@ -38,6 +38,13 @@ All DOM manipulation uses safe methods (`createElement`, `textContent`, `appendC
 
 ## Version History
 
+### 2026-04-21 v1.5.6 — Options Status Messages: Only Show What Actually Changed
+- Fixed Apply announcing every setting as "updated" even when only one field was edited — the status block now shows only messages for keys whose value actually changed, and Apply with no edits is silent
+
+### 2026-04-21 v1.5.5 — Pagination Visibility & Prowlarr Options Polish
+- Fixed pagination bar never appearing in the popup — `#pagination` base CSS was `display: none`, which swallowed the JS reveal path that clears the inline `display` style
+- Fixed Options page announcing "Prowlarr address updated." and "Prowlarr result limit set to N." while the integration was disabled — sub-setting messages now gated on the `Enable Prowlarr` checkbox
+
 ### 2026-04-21 v1.5.4 — Pagination Settings Init Fix
 - Fixed "Show per-page selector in popup" and "Always show pagination bar" not applying on popup open (settings saved and toggled correctly, but the initial render happened before storage finished loading)
 

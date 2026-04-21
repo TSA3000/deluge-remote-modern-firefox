@@ -2,6 +2,32 @@
 
 ---
 
+## v1.5.6 — Options Status Messages: Only Show What Actually Changed
+*2026-04-21*
+
+Patch release fixing a message-spam bug in the Options page status block.
+
+### Bug Fixes
+
+- **Pressing Apply after editing a single option announced every setting as "updated"** — The Options status block showed "Address protocol updated.", "Address IP updated.", "Torrents per page set to 20.", "Prowlarr integration disabled!", etc. on every Apply, even when only one field had been edited. Root cause: `saveOptions()` writes the full settings object on every Apply (necessary so defaults get persisted on first save), and Firefox's `storage.sync` fires `onChanged` for every key included in the `set()` call — including keys whose value didn't actually change (`oldValue === newValue`). Fixed by skipping same-value entries at the top of the `storage.onChanged` listener, so only keys whose value genuinely changed emit a message. First-save-after-install still shows every message (old values were undefined, which correctly differs from the new values); subsequent Applies only show messages for the fields you actually touched, and an Apply with no changes is silent.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `manifest.json` | Version bumped to `1.5.6` |
+| `js/options.js` | `storage.onChanged` listener skips entries where `storageChange.oldValue === storageChange.newValue` before running through the message switch |
+
+### Compatibility
+
+- No storage schema changes.
+- No permissions changes.
+- No AMO-safety impact (`innerHTML`-free code preserved).
+- All persisted settings are primitives (string / number / boolean), so strict equality is type-safe.
+- Upgrades from v1.5.5 are transparent.
+
+---
+
 ## v1.5.5 — Pagination Visibility & Prowlarr Options Polish
 *2026-04-21*
 
