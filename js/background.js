@@ -1,9 +1,27 @@
 /*
- * Remote Deluge - Background Service Worker (Manifest V3)
+ * Remote Deluge - Background Script (Manifest V3 event page)
  *
- * Combines: global_options, debug_log, deluge API, and background logic.
- * No DOM or jQuery — uses fetch() for network calls.
+ * Combines: global_options, debug_log, deluge API, prowlarr API, and
+ * background logic. No DOM or jQuery — uses fetch() for network calls.
+ *
+ * ──────────────────────────────────────────────────────────────────────
+ *  TABLE OF CONTENTS
+ * ──────────────────────────────────────────────────────────────────────
+ *   1. CONFIG & LIFECYCLE   — ExtensionConfig, loadConfig, debug_log
+ *   2. DELUGE API           — DelugeAPI, login, connectToDaemon
+ *   3. PROWLARR API         — ProwlarrAPI, search controller
+ *   4. DELUGE OPERATIONS    — checkStatus, activate, add torrents,
+ *                             context menu, getVersion, badge
+ *   5. CRYPTO               — PasswordCrypto (AES-GCM)
+ *   6. MESSAGE HANDLER      — chrome.runtime.onMessage router
+ *   7. STARTUP              — bootstrap on install/launch
+ * ──────────────────────────────────────────────────────────────────────
  */
+
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  1. CONFIG & LIFECYCLE                                               ║
+// ╚══════════════════════════════════════════════════════════════════════╝
 
 // ── Global Options ──────────────────────────────────────────────────────────
 let ExtensionConfig = {
@@ -20,6 +38,8 @@ let ExtensionConfig = {
 	debug_mode:       false,
 	dark_mode:        "system",
 	torrents_per_page: 0,
+	show_per_page_in_popup: false,
+	always_show_pagination: false,
 
 	// ── Prowlarr integration ───────────────────────────────────────────
 	prowlarr_enabled:       false,
@@ -28,7 +48,8 @@ let ExtensionConfig = {
 	prowlarr_port:          "9696",
 	prowlarr_base:          "",
 	prowlarr_api_key:       "",
-	prowlarr_results_limit: 100
+	prowlarr_results_limit: 100,
+	prowlarr_selected_indexers: []
 };
 
 function loadConfig() {
@@ -62,6 +83,10 @@ function debug_log(...args) {
 		console.log(...args);
 	}
 }
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  2. DELUGE API                                                       ║
+// ╚══════════════════════════════════════════════════════════════════════╝
 
 // ── Deluge API (fetch-based) ────────────────────────────────────────────────
 const DelugeAPI = {
@@ -109,6 +134,10 @@ const DelugeAPI = {
 		}
 	}
 };
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  3. PROWLARR API                                                     ║
+// ╚══════════════════════════════════════════════════════════════════════╝
 
 // ── Prowlarr API (fetch-based) ──────────────────────────────────────────────
 // Track the AbortController of the currently-running search so the popup
@@ -246,6 +275,10 @@ const ProwlarrAPI = {
 	}
 };
 
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  4. DELUGE OPERATIONS                                                ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
 // ── Background Logic ────────────────────────────────────────────────────────
 let statusTimer = null;
 
@@ -283,6 +316,10 @@ async function connectToDaemon() {
     const conn = await DelugeAPI.call("web.connect", [hostId]);
     if (conn.error) throw new Error("Failed to connect to daemon");
 }
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  5. CRYPTO  (shared by Deluge password & Prowlarr API key)           ║
+// ╚══════════════════════════════════════════════════════════════════════╝
 
 // ── Password Crypto (AES-GCM) ───────────────────────────────────────────────
 const PasswordCrypto = {
@@ -508,6 +545,10 @@ async function getVersion() {
 	return null;
 }
 
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  6. MESSAGE HANDLER                                                  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+
 // ── Message Handling ────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 	debug_log("Received message:", request.method || request.msg, request);
@@ -595,6 +636,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 			break;
 	}
 });
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  7. STARTUP                                                          ║
+// ╚══════════════════════════════════════════════════════════════════════╝
 
 // ── Startup ─────────────────────────────────────────────────────────────────
 async function start(allowOpenOptions) {

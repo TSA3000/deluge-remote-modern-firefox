@@ -26,6 +26,37 @@ var ProwlarrSearch = (function () {
 	var HISTORY_KEY   = "prowlarr_history";
 	var HISTORY_MAX   = 50;
 
+	var SELECTED_INDEXERS_KEY = "prowlarr_selected_indexers";
+
+	// Persist the current selectedIndexers to storage.sync so it survives
+	// popup close/reopen and syncs across devices. We always write even when
+	// empty (which means "all") to make intent explicit.
+	function saveSelectedIndexers() {
+		try {
+			var obj = {};
+			obj[SELECTED_INDEXERS_KEY] = selectedIndexers.slice();
+			chrome.storage.sync.set(obj);
+		} catch (e) {
+			debug_log("Prowlarr: failed to save selected indexers", e);
+		}
+	}
+
+	// Prune any IDs that no longer exist in the freshly-loaded indexer list.
+	// Prowlarr may have removed an indexer since we last saved. If everything
+	// is invalid, fall back to "All indexers" ([]).
+	function reconcileSelectedIndexersWithList() {
+		if (!selectedIndexers.length) return;
+		var validIds = {};
+		for (var i = 0; i < indexerList.length; i++) {
+			validIds[indexerList[i].id] = true;
+		}
+		var cleaned = selectedIndexers.filter(function (id) { return validIds[id]; });
+		if (cleaned.length !== selectedIndexers.length) {
+			selectedIndexers = cleaned;
+			saveSelectedIndexers();
+		}
+	}
+
 	// ── Categories (Newznab/Torznab top-level) ─────────────────────────
 	var CATEGORY_OPTIONS = [
 		{ value: "",     label: "All categories" },
@@ -177,6 +208,7 @@ var ProwlarrSearch = (function () {
 					indexerMap[indexerList[i].id] = indexerList[i].name;
 				}
 				indexersLoaded = true;
+				reconcileSelectedIndexersWithList();
 				renderIndexerList();
 			})
 			.error(function (_, __, err) {
@@ -313,6 +345,7 @@ var ProwlarrSearch = (function () {
 				boxes[i].checked = selectedIndexers.indexOf(parseInt(boxes[i].value, 10)) !== -1;
 			}
 			updateIndexerLabel();
+			saveSelectedIndexers();
 		});
 
 		DomHelper.on(items, "change", ".ms-check", function () {
@@ -322,6 +355,7 @@ var ProwlarrSearch = (function () {
 			else if (!this.checked && idx !== -1) selectedIndexers.splice(idx, 1);
 			updateIndexerAllState();
 			updateIndexerLabel();
+			saveSelectedIndexers();
 		});
 	}
 
@@ -869,6 +903,13 @@ var ProwlarrSearch = (function () {
 		if (initialized) return;
 		initialized = true;
 
+		// Restore previously-saved indexer selection before we load the
+		// fresh list from Prowlarr. reconcileSelectedIndexersWithList() runs
+		// after loadIndexers resolves and will prune any stale IDs.
+		if (Array.isArray(ExtensionConfig.prowlarr_selected_indexers)) {
+			selectedIndexers = ExtensionConfig.prowlarr_selected_indexers.slice();
+		}
+
 		loadCategories();
 		wireIndexerDropdown();
 		loadIndexers();   // eager — do not wait for the user to click
@@ -942,6 +983,24 @@ var ProwlarrSearch = (function () {
 				copyToClipboard(this.getAttribute("data-url"));
 			});
 		}
+
+		// Cross-device / multi-popup sync — if the selection changes in
+		// another popup or via Firefox Sync, reflect it here without a reload.
+		chrome.storage.onChanged.addListener(function (changes, area) {
+			if (area !== "sync" || !changes[SELECTED_INDEXERS_KEY]) return;
+			var incoming = changes[SELECTED_INDEXERS_KEY].newValue;
+			if (!Array.isArray(incoming)) return;
+			// Skip if it matches what we already have (we probably wrote it)
+			if (incoming.length === selectedIndexers.length &&
+				incoming.every(function (id, i) { return id === selectedIndexers[i]; })) {
+				return;
+			}
+			selectedIndexers = incoming.slice();
+			if (indexersLoaded) {
+				reconcileSelectedIndexersWithList();
+				renderIndexerList();
+			}
+		});
 
 		setStatus("Ready. Enter a search term.", "");
 	};

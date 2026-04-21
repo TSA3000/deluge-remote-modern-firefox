@@ -1,7 +1,7 @@
 {
   "name": "Deluge Remote Modern",
   "description": "Control your Deluge BitTorrent client directly from Firefox. Secure, fast, and fully open-source.",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "icons": {
     "128": "images/icons/128.png",
     "64": "images/icons/64.png",

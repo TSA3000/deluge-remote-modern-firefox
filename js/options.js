@@ -28,6 +28,8 @@ function saveOptions(callback) {
 			"dark_mode": document.getElementById("dark_mode").value,
 			"icon_pack": document.getElementById("icon_pack").value,
 			"torrents_per_page": parseInt(document.getElementById("torrents_per_page").value),
+			"show_per_page_in_popup": document.getElementById("show_per_page_in_popup").checked,
+			"always_show_pagination": document.getElementById("always_show_pagination").checked,
 
 			// ── Prowlarr ─────────────────────────────────────────────
 			"prowlarr_enabled":       document.getElementById("prowlarr_enabled").checked,
@@ -327,6 +329,16 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 			case "icon_pack":
 				var ip = document.getElementById("icon_pack");
 				messages.push("Icon pack set to " + ip.options[ip.selectedIndex].text + ".");
+				break;
+			case "torrents_per_page":
+				var tpp = document.getElementById("torrents_per_page");
+				messages.push("Torrents per page set to " + tpp.options[tpp.selectedIndex].text + ".");
+				break;
+			case "show_per_page_in_popup":
+				messages.push("Per-page selector in popup " + (document.getElementById("show_per_page_in_popup").checked ? "en" : "dis") + "abled!");
+				break;
+			case "always_show_pagination":
+				messages.push("Always-show pagination bar " + (document.getElementById("always_show_pagination").checked ? "en" : "dis") + "abled!");
 				break;
 			case "prowlarr_enabled":
 				messages.push("Prowlarr integration " + (document.getElementById("prowlarr_enabled").checked ? "en" : "dis") + "abled!");

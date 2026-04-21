@@ -346,12 +346,45 @@
               </td>
               <td>
                 <select id="torrents_per_page">
+                  <option value="5">5</option>
                   <option value="10">10</option>
                   <option value="20" selected="selected">20</option>
                   <option value="50">50</option>
                   <option value="100">100</option>
                   <option value="0">All (no paging)</option>
                 </select>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <label class="normal" for="show_per_page_in_popup"
+                  >Show per-page selector in popup</label
+                >
+              </td>
+              <td>
+                <input
+                  id="show_per_page_in_popup"
+                  name="show_per_page_in_popup"
+                  type="checkbox"
+                  value="1"
+                />
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <label class="normal" for="always_show_pagination"
+                  >Always show pagination bar<span
+                    ><br />Keep the bar visible even when all torrents fit on one page</span
+                  ></label
+                >
+              </td>
+              <td>
+                <input
+                  id="always_show_pagination"
+                  name="always_show_pagination"
+                  type="checkbox"
+                  value="1"
+                />
               </td>
             </tr>
             <tr>

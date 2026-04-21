@@ -13,6 +13,8 @@ var ExtensionConfig = {
 	dark_mode: "system",
 	icon_pack: "classic",
 	torrents_per_page: 0,
+	show_per_page_in_popup: false,
+	always_show_pagination: false,
 
 	// ── Prowlarr integration ──────────────────────────────────────────
 	prowlarr_enabled:       false,
@@ -21,7 +23,8 @@ var ExtensionConfig = {
 	prowlarr_port:          "9696",
 	prowlarr_base:          "",
 	prowlarr_api_key:       "",
-	prowlarr_results_limit: 100
+	prowlarr_results_limit: 100,
+	prowlarr_selected_indexers: []
 };
 
 chrome.storage.onChanged.addListener(function (changes, namespace) {

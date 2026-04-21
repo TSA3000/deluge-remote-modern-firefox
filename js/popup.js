@@ -20,6 +20,15 @@ document.addEventListener("DOMContentLoaded", function () {
 	var totalPages = 1;
 	var TORRENTS_PER_PAGE = ExtensionConfig.torrents_per_page || 0;
 
+	// Keep the per-page dropdown and its visibility in sync with ExtensionConfig.
+	// Called on popup open, storage changes, and config updates.
+	function syncPerPagePopupUI() {
+		var sel = document.getElementById("per_page_popup");
+		if (!sel) return;
+		sel.value = String(ExtensionConfig.torrents_per_page || 0);
+		sel.style.display = ExtensionConfig.show_per_page_in_popup ? "" : "none";
+	}
+
 	function rebuildLabelOptions() {
 		var labels = Torrents.getLabels();
 		var hash = labels.join("|");
@@ -197,15 +206,41 @@ document.addEventListener("DOMContentLoaded", function () {
 		var nextBtn = document.getElementById("page_next");
 		var paginationDiv = document.getElementById("pagination");
 
-		if (TORRENTS_PER_PAGE === 0 || totalFiltered <= TORRENTS_PER_PAGE) {
+		var showPerPageSel = !!ExtensionConfig.show_per_page_in_popup;
+		var alwaysShowBar  = !!ExtensionConfig.always_show_pagination;
+		var needsPagination = (TORRENTS_PER_PAGE !== 0 && totalFiltered > TORRENTS_PER_PAGE);
+
+		// Hide the whole bar only if pagination isn't needed, the per-page
+		// selector isn't requested, and the user hasn't opted to always
+		// keep the bar visible.
+		if (!needsPagination && !showPerPageSel && !alwaysShowBar) {
 			paginationDiv.style.display = "none";
 			return;
 		}
 
 		paginationDiv.style.display = "";
-		pageInfo.textContent = "Page " + (currentPage + 1) + " / " + totalPages + " (" + totalFiltered + " torrents)";
-		prevBtn.disabled = (currentPage <= 0);
-		nextBtn.disabled = (currentPage >= totalPages - 1);
+
+		if (needsPagination) {
+			pageInfo.style.display = "";
+			prevBtn.style.display = "";
+			nextBtn.style.display = "";
+			pageInfo.textContent = "Page " + (currentPage + 1) + " / " + totalPages + " (" + totalFiltered + " torrents)";
+			prevBtn.disabled = (currentPage <= 0);
+			nextBtn.disabled = (currentPage >= totalPages - 1);
+		} else if (alwaysShowBar) {
+			// Show Prev/Next disabled, plus a summary line
+			pageInfo.style.display = "";
+			prevBtn.style.display = "";
+			nextBtn.style.display = "";
+			pageInfo.textContent = "Page 1 / 1 (" + totalFiltered + " torrent" + (totalFiltered === 1 ? "" : "s") + ")";
+			prevBtn.disabled = true;
+			nextBtn.disabled = true;
+		} else {
+			// Bar shown only for the per-page dropdown
+			pageInfo.style.display = "none";
+			prevBtn.style.display = "none";
+			nextBtn.style.display = "none";
+		}
 	}
 
 	// ── Event Handlers (delegated) ──────────────────────────────────────
@@ -517,6 +552,7 @@ document.addEventListener("DOMContentLoaded", function () {
 	(function () {
 		var prevBtn = document.getElementById("page_prev");
 		var nextBtn = document.getElementById("page_next");
+		var perPageSel = document.getElementById("per_page_popup");
 
 		prevBtn.addEventListener("click", function () {
 			if (currentPage > 0) {
@@ -531,7 +567,40 @@ document.addEventListener("DOMContentLoaded", function () {
 				renderTable();
 			}
 		});
+
+		if (perPageSel) {
+			perPageSel.addEventListener("change", function () {
+				var val = parseInt(perPageSel.value, 10) || 0;
+				TORRENTS_PER_PAGE = val;
+				ExtensionConfig.torrents_per_page = val;
+				currentPage = 0;
+				chrome.storage.sync.set({ torrents_per_page: val });
+				renderTable();
+			});
+		}
+
+		syncPerPagePopupUI();
+		// ExtensionConfig is populated asynchronously from storage — re-sync
+		// once it's ready so the dropdown reflects the real saved state.
+		document.addEventListener("ExtensionConfigReady", syncPerPagePopupUI);
 	}());
+
+	// Keep dropdown in sync when settings change (e.g. Options page edited)
+	chrome.storage.onChanged.addListener(function (changes) {
+		if (changes.torrents_per_page || changes.show_per_page_in_popup || changes.always_show_pagination) {
+			if (changes.torrents_per_page) {
+				ExtensionConfig.torrents_per_page = changes.torrents_per_page.newValue;
+			}
+			if (changes.show_per_page_in_popup) {
+				ExtensionConfig.show_per_page_in_popup = changes.show_per_page_in_popup.newValue;
+			}
+			if (changes.always_show_pagination) {
+				ExtensionConfig.always_show_pagination = changes.always_show_pagination.newValue;
+			}
+			syncPerPagePopupUI();
+			renderTable();
+		}
+	});
 
 	// ── Event Polling ──────────────────────────────────────────────────
 	// Poll Deluge events between full/diff updates to catch add/remove quickly

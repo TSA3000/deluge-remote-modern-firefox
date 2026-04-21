@@ -10,9 +10,12 @@ A Firefox add-on for managing a remote Deluge torrent server from your browser t
 - **Full Deluge control** — Pause/resume, queue up/down, recheck, delete (with or without data), toggle auto-managed, set labels
 - **Add torrents** — From the popup (URL/magnet), right-click links, or `.torrent` file downloads
 - **Prowlarr integration** — Search private and public indexers directly from the popup, grab releases to your download client, search history
+    - **Remember selected indexers** — Your indexer selection on the Search tab persists across popup close/reopen and syncs across devices
 - **Search by name** — Real-time filter box (150ms debounce, Esc to clear)
 - **Filters** — State, Tracker, Label
-- **Pagination** — Configurable torrents per page (10, 20, 50, 100, or all)
+- **Pagination** — Configurable torrents per page (5, 10, 20, 50, 100, or all)
+    - **Optional per-page dropdown in the popup** — Change pagination without opening Options
+    - **Optional always-visible pagination bar** — Useful for quick access to the dropdown
 - **Dark Mode & Themes** — Light, Dark (Midnight), Solarized Dark, Nord, Dracula, or System (auto)
 - **Icon Packs** — Classic (PNG) or Modern (SVG glyphs)
 - **Test Connection** — Verify setup before saving
@@ -27,12 +30,20 @@ A Firefox add-on for managing a remote Deluge torrent server from your browser t
 - **Event-driven updates** — Near-instant add/remove via Deluge's event system
 - **Optimistic delete** — Torrents disappear instantly on delete, reconciled on next full update
 - **Trimmed payload** — Only requests fields the UI uses
+- **Authoritative size fields** — Uses Deluge's `total_done` and `total_wanted` directly for accurate size display on magnet torrents and partial-file selections
 
 ## AMO Compliance
 
 All DOM manipulation uses safe methods (`createElement`, `textContent`, `appendChild`) instead of `innerHTML`, satisfying Mozilla's stricter add-on review requirements. Dynamic content like search result rows and history entries are built as real DOM nodes and appended via `DocumentFragment` — no HTML string parsing, no validator warnings.
 
 ## Version History
+
+### 2026-04-21 v1.5.3 — Pagination UX & Remember Indexer Selection
+- New per-page selector dropdown in the popup (optional, gated by Options checkbox)
+- Added "5" as a per-page option
+- New "Always show pagination bar" option (default off — opt-in for users who want it persistent)
+- Indexer selection on the Prowlarr Search tab now persists across popup close/reopen
+- `background.js` reorganized with section banners and table of contents
 
 ### 2026-04-21 v1.5.2 — Bug Fixes
 - Fixed torrent size showing "0.0 KiB of 0.0 KiB" — now uses Deluge's authoritative `total_done` / `total_wanted` fields instead of deriving from `total_size × progress`
