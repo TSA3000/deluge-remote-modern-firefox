@@ -2,6 +2,33 @@
 
 ---
 
+## v1.5.5 — Pagination Visibility & Prowlarr Options Polish
+*2026-04-21*
+
+Patch release fixing two follow-up bugs from v1.5.4.
+
+### Bug Fixes
+
+- **Pagination bar never appeared in the popup, regardless of settings** — Even with both "Show per-page selector in popup" and "Always show pagination bar" enabled, the bar stayed hidden. Turned out to be a latent CSS/JS mismatch that v1.5.4's `renderTable()` fix couldn't help with: `#pagination` in `css/popup.css` had `display: none` as its base rule, but `updatePaginationControls()` reveals the bar by setting `paginationDiv.style.display = ""` (clearing the inline style so the CSS default takes over). The CSS default was `none`, so "reveal" effectively meant "hide". Fixed by changing the `#pagination` base rule to `display: flex`, which matches the `align-items` / `justify-content` / `gap` the rule already carries.
+- **Options page announced "Prowlarr address updated." and "Prowlarr result limit set to N." while the integration was disabled** — Every Apply writes the full Prowlarr sub-setting block even when the top-level toggle is off, so disabling Prowlarr produced a confusing chain of status messages ("Prowlarr integration disabled!" immediately followed by "Prowlarr address updated.", "Prowlarr result limit set to 100."). Fixed by gating the sub-setting status messages (`prowlarr_protocol` / `prowlarr_ip` / `prowlarr_port` / `prowlarr_base` / `prowlarr_api_key` / `prowlarr_results_limit`) on the `prowlarr_enabled` checkbox being checked. The top-level toggle message still fires in both directions.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `manifest.json` | Version bumped to `1.5.5` |
+| `css/popup.css` | `#pagination` base rule changed from `display: none` to `display: flex` so the JS `style.display = ""` reveal works as intended |
+| `js/options.js` | `storage.onChanged` listener reads `prowlarr_enabled.checked` once per batch into a `prowlarrOn` flag and gates the Prowlarr sub-setting status messages on it |
+
+### Compatibility
+
+- No storage schema changes.
+- No permissions changes.
+- No AMO-safety impact (`innerHTML`-free code preserved).
+- Upgrades from v1.5.4 are transparent.
+
+---
+
 ## v1.5.4 — Pagination Settings Init Fix
 *2026-04-21*
 

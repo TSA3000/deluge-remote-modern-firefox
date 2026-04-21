@@ -282,6 +282,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
 chrome.storage.onChanged.addListener(function (changes, namespace) {
 	var messages = [];
+	// Prowlarr sub-setting updates (address, api key, results limit) are
+	// suppressed when the integration is disabled, otherwise disabling
+	// Prowlarr and pressing Apply confusingly reports "Prowlarr address
+	// updated." alongside "Prowlarr integration disabled!".
+	var prowlarrEnabledEl = document.getElementById("prowlarr_enabled");
+	var prowlarrOn = !!(prowlarrEnabledEl && prowlarrEnabledEl.checked);
 	for (var key in changes) {
 		var storageChange = changes[key];
 		debug_log('Storage key "' + key + '" changed. Old: "' + storageChange.oldValue + '", New: "' + storageChange.newValue + '"');
@@ -347,14 +353,16 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 			case "prowlarr_ip":
 			case "prowlarr_port":
 			case "prowlarr_base":
-				messages.push("Prowlarr address updated.");
+				if (prowlarrOn) messages.push("Prowlarr address updated.");
 				break;
 			case "prowlarr_api_key":
-				messages.push("Prowlarr API key updated (encrypted).");
+				if (prowlarrOn) messages.push("Prowlarr API key updated (encrypted).");
 				break;
 			case "prowlarr_results_limit":
-				var prl = document.getElementById("prowlarr_results_limit");
-				messages.push("Prowlarr result limit set to " + prl.options[prl.selectedIndex].text + ".");
+				if (prowlarrOn) {
+					var prl = document.getElementById("prowlarr_results_limit");
+					messages.push("Prowlarr result limit set to " + prl.options[prl.selectedIndex].text + ".");
+				}
 				break;
 		}
 	}
