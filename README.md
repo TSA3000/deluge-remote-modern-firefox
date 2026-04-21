@@ -1,5 +1,11 @@
 # Deluge Remote Modern (Firefox)
 
+[![Mozilla Add-on Version](https://img.shields.io/amo/v/deluge-remote-modern?label=Firefox%20Add-on)](https://addons.mozilla.org/firefox/addon/deluge-remote-modern/)
+[![Mozilla Add-on Users](https://img.shields.io/amo/users/deluge-remote-modern?label=users)](https://addons.mozilla.org/firefox/addon/deluge-remote-modern/)
+[![Mozilla Add-on Rating](https://img.shields.io/amo/rating/deluge-remote-modern?label=rating)](https://addons.mozilla.org/firefox/addon/deluge-remote-modern/)
+[![GitHub release](https://img.shields.io/github/v/release/TSA3000/deluge-remote-modern-firefox?label=release)](https://github.com/TSA3000/deluge-remote-modern-firefox/releases)
+[![License](https://img.shields.io/github/license/TSA3000/deluge-remote-modern-firefox)](./MIT-LICENSE)
+
 A Firefox add-on for managing a remote Deluge torrent server from your browser toolbar.
 
 **AMO listing:** <https://addons.mozilla.org/firefox/addon/deluge-remote-modern/>
