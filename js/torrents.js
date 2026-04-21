@@ -20,7 +20,7 @@ var Torrents = (function () {
 
 	// Only the fields the popup actually displays or filters on
 	var KEYS = [
-		"queue", "name", "total_size", "state", "progress",
+		"queue", "name", "total_size", "total_done", "total_wanted", "state", "progress",
 		"download_payload_rate", "upload_payload_rate", "eta",
 		"ratio", "is_auto_managed", "num_seeds", "total_seeds",
 		"num_peers", "total_peers", "is_finished",
@@ -144,6 +144,8 @@ var Torrents = (function () {
 		if ("progress" in diff) torrent.progress = diff.progress;
 		if ("state" in diff) torrent.state = diff.state;
 		if ("total_size" in diff) torrent.size = diff.total_size;
+		if ("total_done" in diff) torrent.totalDone = diff.total_done;
+		if ("total_wanted" in diff) torrent.totalWanted = diff.total_wanted;
 		if ("queue" in diff) torrent.position = diff.queue;
 		if ("download_payload_rate" in diff) torrent.speedDownload = diff.download_payload_rate;
 		if ("upload_payload_rate" in diff) torrent.speedUpload = diff.upload_payload_rate;

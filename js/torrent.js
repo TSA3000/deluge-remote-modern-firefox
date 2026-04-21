@@ -4,6 +4,8 @@ function Torrent(id, data) {
 	this.progress = data.progress;
 	this.state = data.state;
 	this.size = data.total_size;
+	this.totalDone = data.total_done;     // actual bytes on disk (authoritative)
+	this.totalWanted = data.total_wanted; // size of files selected for download
 	this.position = data.queue;
 	this.speedDownload = data.download_payload_rate;
 	this.speedUpload = data.upload_payload_rate;
@@ -40,10 +42,21 @@ Torrent.prototype.calcSize = function (size) {
 };
 
 Torrent.prototype.getHumanSize = function () {
-	return this.calcSize(this.size);
+	// Prefer total_wanted (size of selected files) over total_size (all files).
+	// total_wanted matches what Deluge's native WebUI shows and is correct even
+	// when some files are deselected or when total_size is reported as 0.
+	var size = (typeof this.totalWanted === "number" && this.totalWanted > 0)
+		? this.totalWanted
+		: this.size;
+	return this.calcSize(size);
 };
 Torrent.prototype.getHumanDownloadedSize = function() {
-	return this.calcSize(this.size * this.progress / 100)
+	// Use Deluge's authoritative total_done when available, rather than
+	// deriving from total_size * progress (which is wrong when total_size is 0).
+	if (typeof this.totalDone === "number" && this.totalDone >= 0) {
+		return this.calcSize(this.totalDone);
+	}
+	return this.calcSize(this.size * this.progress / 100);
 }
 
 // States where live stats (ETA, speeds, peers) are meaningful

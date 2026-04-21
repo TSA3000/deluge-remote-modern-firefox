@@ -129,8 +129,18 @@ const ProwlarrAPI = {
 		if (query && typeof query === "object") {
 			const parts = [];
 			for (const key in query) {
-				if (query[key] === null || query[key] === undefined || query[key] === "") continue;
-				parts.push(encodeURIComponent(key) + "=" + encodeURIComponent(query[key]));
+				const val = query[key];
+				if (val === null || val === undefined || val === "") continue;
+				if (Array.isArray(val)) {
+					// Expand arrays to repeated params:  key=a&key=b&key=c
+					// Required by Prowlarr for indexerIds and categories.
+					for (let i = 0; i < val.length; i++) {
+						if (val[i] === null || val[i] === undefined || val[i] === "") continue;
+						parts.push(encodeURIComponent(key) + "=" + encodeURIComponent(val[i]));
+					}
+				} else {
+					parts.push(encodeURIComponent(key) + "=" + encodeURIComponent(val));
+				}
 			}
 			if (parts.length) {
 				url += (url.indexOf("?") === -1 ? "?" : "&") + parts.join("&");

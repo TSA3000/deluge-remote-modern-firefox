@@ -86,12 +86,16 @@ var Prowlarr = (function () {
 	// ── Convenience wrappers ────────────────────────────────────────────
 	Prowlarr.search = function (query, opts) {
 		opts = opts || {};
+		// Prowlarr's /api/v1/search expects indexerIds and categories as
+		// repeated query params (indexerIds=1&indexerIds=2), not a joined
+		// string. The background buildUrl() expands array values into
+		// repeated params, so pass arrays straight through.
 		var q = { query: query, type: "search" };
 		if (opts.indexerIds && opts.indexerIds.length) {
-			q.indexerIds = opts.indexerIds.join(",");
+			q.indexerIds = opts.indexerIds;
 		}
 		if (opts.categories && opts.categories.length) {
-			q.categories = opts.categories.join(",");
+			q.categories = opts.categories;
 		}
 		if (opts.limit) {
 			q.limit = opts.limit;

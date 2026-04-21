@@ -1,6 +1,6 @@
 # Deluge Remote Modern (Firefox)
 
-A Firefox add-on for managing a remote Deluge torrent server from your browser toolbar. Ported from the [Chrome version](https://github.com/TSA3000/deluge-remote-modern), which itself is a modernized fork of [YodaDaCoda/chrome-deluge-remote](https://github.com/YodaDaCoda/chrome-deluge-remote).
+A Firefox add-on for managing a remote Deluge torrent server from your browser toolbar.
 
 **AMO listing:** <https://addons.mozilla.org/firefox/addon/deluge-remote-modern/>
 **Repo:** <https://github.com/TSA3000/deluge-remote-modern-firefox>
@@ -34,29 +34,28 @@ All DOM manipulation uses safe methods (`createElement`, `textContent`, `appendC
 
 ## Version History
 
+### 2026-04-21 v1.5.2 — Bug Fixes
+- Fixed torrent size showing "0.0 KiB of 0.0 KiB" — now uses Deluge's authoritative `total_done` / `total_wanted` fields instead of deriving from `total_size × progress`
+- Fixed HTTP 400 from Prowlarr when searching multiple indexers — now sends repeated `indexerIds` / `categories` query parameters instead of comma-joined values
+
 ### 2026-04-18 v1.5.1 — Prowlarr Search Table Fix
 - Fixed Prowlarr search result rows collapsing into the Title cell
 - `buildRow()` now returns a real `<tr>` built with `createElement`
 - No more DOMParser-based row construction (was hoisting table rows out of their wrapper)
 
 ### 2026-04-18 v1.5.0 — Prowlarr Integration & Optimistic Delete
-- Full Prowlarr search from the popup — tabbed UI (Torrents / Search Indexers / History)
-- Indexer multi-select, sortable results, one-click grab
-- Search history (last 50 queries persisted)
-- Encrypted Prowlarr API key (same AES-GCM as Deluge password)
-- Optimistic torrent deletion — instant row removal with server reconciliation
-- Auto-reconnect to daemon after WebUI disconnects
-- All Prowlarr UI uses AMO-safe DOM methods (no innerHTML)
+- Prowlarr indexer search directly in the popup (new Search / History tabs)
+- Optimistic torrent deletion — rows disappear instantly
+- Auto-reconnect when the daemon is offline
 
-### 2026-04-16 v1.4.2 — AMO Validator Fix
-- Replaced `innerHTML` in `options.js` status message handler
+### 2026-04-16 v1.4.2 — AMO innerHTML compliance
+- Final innerHTML cleanup for AMO review
 
 ### 2026-04-16 v1.4.1 — Pagination Dark Mode Fix
-- Fixed pagination bar appearing light in dark themes (including System/OS dark mode)
+- Pagination bar text colors in dark themes
 
-### 2026-04-16 v1.4.0 — Performance, Search, Setup Polish
-- Search by name, diff polling, events, trimmed fields
-- Live URL preview, password toggle, HTTP warning, better Test Connection feedback
+### 2026-04-16 v1.4.0 — Performance & Search
+- Diff polling, event subscription, search by name, trimmed KEYS payload
 - AbortError bugfix, timeouts raised to 5s
 
 ### 2026-04-15 v1.3.0 — Pagination
@@ -70,8 +69,7 @@ All DOM manipulation uses safe methods (`createElement`, `textContent`, `appendC
 - Replaced all `innerHTML` with safe DOM methods
 - Added Test Connection button
 
-### 2026-04-11 v1.0.0 — Firefox Port
-- Initial Firefox release, ported from Chrome v2.3.1
+### 2026-04-11 v1.0.0 — Initial Firefox Release
 
 For full history, see `RELEASE_NOTES.md`.
 
@@ -121,5 +119,4 @@ MIT — see [`MIT-LICENSE`](MIT-LICENSE).
 
 - Original extension: [YodaDaCoda](https://github.com/YodaDaCoda/chrome-deluge-remote)
 - Modernization, theming, pagination, search, performance, Prowlarr integration: Project fork maintainers
-- Community feedback from the Deluge forums (ambipro and others)
 - Prowlarr API patterns inspired by [cross-seed](https://github.com/cross-seed/cross-seed)
