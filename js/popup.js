@@ -581,8 +581,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		syncPerPagePopupUI();
 		// ExtensionConfig is populated asynchronously from storage — re-sync
-		// once it's ready so the dropdown reflects the real saved state.
-		document.addEventListener("ExtensionConfigReady", syncPerPagePopupUI);
+		// and re-render once it's ready so the dropdown reflects the real
+		// saved state AND the pagination bar honors show_per_page_in_popup /
+		// always_show_pagination (which updatePaginationControls reads).
+		document.addEventListener("ExtensionConfigReady", function () {
+			syncPerPagePopupUI();
+			renderTable();
+		});
 	}());
 
 	// Keep dropdown in sync when settings change (e.g. Options page edited)

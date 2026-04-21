@@ -38,6 +38,9 @@ All DOM manipulation uses safe methods (`createElement`, `textContent`, `appendC
 
 ## Version History
 
+### 2026-04-21 v1.5.4 — Pagination Settings Init Fix
+- Fixed "Show per-page selector in popup" and "Always show pagination bar" not applying on popup open (settings saved and toggled correctly, but the initial render happened before storage finished loading)
+
 ### 2026-04-21 v1.5.3 — Pagination UX & Remember Indexer Selection
 - New per-page selector dropdown in the popup (optional, gated by Options checkbox)
 - Added "5" as a per-page option

@@ -2,6 +2,31 @@
 
 ---
 
+## v1.5.4 — Pagination Settings Init Fix
+*2026-04-21*
+
+Patch release fixing a cold-start bug in the v1.5.3 pagination UX features.
+
+### Bug Fixes
+
+- **"Show per-page selector in popup" and "Always show pagination bar" didn't take effect when the popup first opened** — The settings saved correctly and toggled immediately when changed from Options, but on a fresh popup open the pagination bar would hide (or fail to show the dropdown) even with both checkboxes enabled. Root cause was that the popup's initial render happened before `ExtensionConfig` had finished loading from `storage.sync`. On the async `ExtensionConfigReady` event, the old code re-synced the dropdown's visibility but never called `renderTable()` again — so `updatePaginationControls()` never re-ran with the real settings. Fixed by also calling `renderTable()` when `ExtensionConfigReady` fires, which causes the pagination bar to re-evaluate itself with the correct settings.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `manifest.json` | Version bumped to `1.5.4` |
+| `js/popup.js` | The pagination IIFE's `ExtensionConfigReady` listener now calls both `syncPerPagePopupUI()` and `renderTable()` so `updatePaginationControls()` sees the real `show_per_page_in_popup` / `always_show_pagination` values once storage has loaded |
+
+### Compatibility
+
+- No storage schema changes.
+- No permissions changes.
+- No AMO-safety impact (`innerHTML`-free code preserved).
+- Upgrades from v1.5.3 are transparent.
+
+---
+
 ## v1.5.3 — Pagination UX & Remember Indexer Selection
 *2026-04-21*
 
@@ -31,20 +56,6 @@ The indexer multi-select on the Search Indexers tab now persists your selection 
 ### Internal Improvements
 
 - **`background.js` section banners** — Added a table of contents and seven `╔══╗`-style region banners to the 600+ line background script. Purely cosmetic; enables editor code-folding and makes navigation faster. No functional change.
-
-### Files Changed
-
-| File | Change |
-|---|---|
-| `manifest.json` | Version bumped to `1.5.3` |
-| `popup.html` | Added `#per_page_popup` `<select>` inside the pagination bar (hidden by default) |
-| `options.html` | Added `"5"` to the `torrents_per_page` `<select>`; new `show_per_page_in_popup` + `always_show_pagination` checkboxes |
-| `js/popup.js` | New `syncPerPagePopupUI()`; reworked `updatePaginationControls()` to honor the two new settings and keep the bar visible when the dropdown or always-show option is enabled; pagination IIFE now wires the dropdown's `change` event and responds to `storage.onChanged` for live updates |
-| `js/options.js` | Saves the two new checkbox values; added status-message cases for `torrents_per_page`, `show_per_page_in_popup`, `always_show_pagination` |
-| `js/background.js` | Added defaults `show_per_page_in_popup: false`, `always_show_pagination: false`, `prowlarr_selected_indexers: []`; added table of contents + section banners |
-| `js/global_options.js` | Matching defaults added (keeps popup context and background script in sync) |
-| `js/prowlarr_search.js` | New `saveSelectedIndexers()` / `reconcileSelectedIndexersWithList()` helpers; `pub.init` restores `selectedIndexers` from `ExtensionConfig`; `loadIndexers()` success reconciles the restored list against the fresh indexer list; indexer checkbox `change` + "All" toggle handlers now call `saveSelectedIndexers()`; `storage.onChanged` listener syncs selection across popups/devices |
-| `css/popup.css` | Styling for `#per_page_popup` matching the pagination buttons |
 
 ### AMO Compliance
 
