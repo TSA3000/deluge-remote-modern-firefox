@@ -5,6 +5,9 @@
 [![Mozilla Add-on Rating](https://img.shields.io/amo/rating/deluge-remote-modern?label=rating)](https://addons.mozilla.org/firefox/addon/deluge-remote-modern/)
 [![GitHub release](https://img.shields.io/github/v/release/TSA3000/deluge-remote-modern-firefox?label=release)](https://github.com/TSA3000/deluge-remote-modern-firefox/releases)
 [![License](https://img.shields.io/github/license/TSA3000/deluge-remote-modern-firefox)](./MIT-LICENSE)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-support-FFDD00?style=flat-square&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/tsa3000)
+
+---
 
 A Firefox add-on for managing a remote Deluge torrent server from your browser toolbar.
 
