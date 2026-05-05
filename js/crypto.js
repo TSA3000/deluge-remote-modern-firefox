@@ -22,8 +22,12 @@
  * Field name encodes format: keys ending in `_plain` are always plaintext;
  * `password` / `prowlarr_api_key` (no suffix) are always encrypted blobs.
  *
- * Runtime code reads the resolved plaintext via PasswordCrypto.resolveCredential
- * (or just decrypt() in legacy paths that already know they have ciphertext).
+ * Runtime code reads ExtensionConfig.password / .prowlarr_api_key — these
+ * fields hold whichever format the active mode dictates (encrypted blob
+ * or plaintext). Calling PasswordCrypto.decrypt() on the value works in
+ * both cases: it auto-detects the format and returns plaintext either way.
+ * The optional resolveCredential() helper below is equivalent if you'd
+ * rather pass the mode flag explicitly.
  */
 
 var PasswordCrypto = (function () {
@@ -173,14 +177,14 @@ var PasswordCrypto = (function () {
 	}
 
 	/**
-	 * Resolve a credential field in ExtensionConfig to its plaintext value,
-	 * regardless of which storage mode the user has selected.
+	 * Optional helper — resolve a credential field in ExtensionConfig to its
+	 * plaintext value, given the active mode.
 	 *
-	 * Runtime code (background.js login, prowlarr API calls, etc.) shouldn't
-	 * have to care whether a credential was stored encrypted-local or
-	 * plaintext-sync. global_options.js loads either format into
-	 * ExtensionConfig under the unsuffixed name (e.g. ExtensionConfig.password),
-	 * and this helper returns plaintext in both cases.
+	 * Not currently called by the extension; runtime code uses
+	 * PasswordCrypto.decrypt() directly, which auto-detects format
+	 * (encrypted blobs decrypt, plaintext passes through unchanged). This
+	 * helper exists as an alternative for code that prefers passing the
+	 * mode flag explicitly rather than relying on format auto-detection.
 	 *
 	 * @param {string} value - ExtensionConfig.password or .prowlarr_api_key
 	 * @param {boolean} localOnly - ExtensionConfig.store_credentials_locally

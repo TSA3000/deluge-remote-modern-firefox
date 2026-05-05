@@ -54,6 +54,13 @@ let ExtensionConfig = {
 
 // Storage-key conventions match global_options.js. See crypto.js header for
 // the full picture of where credentials live in each mode.
+//
+// Migration note: the toggle move from storage.local → storage.sync (1.5.9+)
+// is performed by global_options.js when the popup or options page loads.
+// This service worker doesn't migrate on its own — it just reads the legacy
+// local toggle as a fallback. That's safe because every user eventually
+// opens the popup, at which point migration runs and propagates the toggle
+// to sync. Until then, the runtime functions correctly using the local copy.
 
 function loadConfig() {
 	return Promise.all([

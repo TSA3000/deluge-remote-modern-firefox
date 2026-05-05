@@ -32,11 +32,6 @@ var ExtensionConfig = {
 	prowlarr_selected_indexers: []
 };
 
-// Keys that contain encrypted credentials and obey the
-// store_credentials_locally toggle. Read/write routing for these keys is
-// determined per-device by that flag.
-var CREDENTIAL_KEYS = ["password", "prowlarr_api_key"];
-
 // Storage namespace overview (see options.html "Keep credentials on this
 // device only" toggle and crypto.js header for the full picture):
 //
@@ -66,8 +61,9 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 	for (var key in changes) {
 		// Map plaintext sync field names to the unified runtime field names.
 		// runtime ExtensionConfig.password is plaintext when toggle is off,
-		// ciphertext when toggle is on; PasswordCrypto.resolveCredential
-		// (called by background.js) handles the difference.
+		// ciphertext when toggle is on; PasswordCrypto.decrypt() in
+		// background.js handles both formats transparently (see crypto.js
+		// header for the full picture).
 		var runtimeKey = key;
 		if (key === "password_plain") runtimeKey = "password";
 		if (key === "prowlarr_api_key_plain") runtimeKey = "prowlarr_api_key";
@@ -142,8 +138,8 @@ chrome.storage.local.get(null, function (localItems) {
 			// Plaintext: read directly from storage.sync.*_plain.
 			// We expose plaintext via the encrypted-blob field name so the
 			// rest of the extension's runtime can read ExtensionConfig.password
-			// uniformly. PasswordCrypto.resolveCredential routes based on the
-			// active mode.
+			// uniformly. PasswordCrypto.decrypt() in background.js handles
+			// both formats transparently.
 			ExtensionConfig.password = syncItems.password_plain;
 			ExtensionConfig.prowlarr_api_key = syncItems.prowlarr_api_key_plain;
 		}

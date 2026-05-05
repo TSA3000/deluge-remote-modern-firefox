@@ -173,7 +173,8 @@
                   <br /><strong>When checked (recommended, more secure):</strong>
                   your Deluge password and Prowlarr API key are AES-GCM
                   encrypted with a key unique to each device, and the
-                  encrypted blobs are kept locally — they do not sync.
+                  encrypted blobs are kept locally — the credentials never
+                  sync.
                   <br /><strong>When unchecked (less secure):</strong> your
                   password and API key are stored as <em>plain text</em> in
                   your browser's sync storage and shared across every device
@@ -181,9 +182,11 @@
                   your browser account can read them. Use this only if you
                   want one set of credentials to apply to all your devices
                   and accept the trade-off.
-                  <br /><em>This setting is account-wide</em> — toggling it
-                  on one device propagates to every device on the same
-                  browser account.
+                  <br /><em>Note:</em> this checkbox itself is account-wide —
+                  toggling it on one device propagates the mode change (and,
+                  if turned off, the plain-text credentials) to every device
+                  on the same browser account. Only the encrypted credentials
+                  themselves stay local.
                 </span>
               </td>
             </tr>
