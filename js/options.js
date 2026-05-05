@@ -44,9 +44,13 @@ function saveOptions(callback) {
 		"version": chrome.runtime.getManifest().version
 	};
 
-	var localSettings = {
-		"store_credentials_locally": localOnly
-	};
+	// As of 1.5.9 the toggle is account-wide (storage.sync) so unchecking on
+	// one device propagates the new mode + plaintext credentials to every
+	// device on the same browser account. The toggle write goes into
+	// syncSettings below.
+	syncSettings.store_credentials_locally = localOnly;
+
+	var localSettings = {};
 
 	// Cleanup lists — credentials always live in exactly one namespace at a
 	// time. Whichever one we aren't writing to gets wiped to prevent stale
@@ -54,11 +58,17 @@ function saveOptions(callback) {
 	var syncRemove = [];
 	var localRemove = [];
 
+	// Drop the legacy per-device toggle from storage.local if it's still
+	// hanging around from a 1.5.7/1.5.8 install. The migration block in
+	// global_options.js handles this on load too, but doing it here on every
+	// Apply keeps things tidy.
+	localRemove.push("store_credentials_locally");
+
 	function finishSave(encryptedPassword, encryptedProwlarrKey) {
 		if (localOnly) {
 			// ─── Encrypted local mode (more secure) ─────────────────
 			// Encrypted blobs go into storage.local.password / .prowlarr_api_key.
-			// Wipe any plaintext from sync, plus legacy v1.5.6 encrypted blobs.
+			// Wipe any plaintext from sync, plus legacy <1.5.8 encrypted blobs.
 			if (encryptedPassword !== null) {
 				localSettings.password = encryptedPassword;
 				_originalPassword = plainPassword;
@@ -86,7 +96,7 @@ function saveOptions(callback) {
 
 		Promise.all([
 			new Promise(function (r) { chrome.storage.sync.set(syncSettings, r); }),
-			new Promise(function (r) { chrome.storage.local.set(localSettings, r); }),
+			Object.keys(localSettings).length ? new Promise(function (r) { chrome.storage.local.set(localSettings, r); }) : Promise.resolve(),
 			syncRemove.length ? new Promise(function (r) { chrome.storage.sync.remove(syncRemove, r); }) : Promise.resolve(),
 			localRemove.length ? new Promise(function (r) { chrome.storage.local.remove(localRemove, r); }) : Promise.resolve()
 		]).then(function () {
@@ -448,25 +458,36 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 });
 
 // Load settings from BOTH namespaces.
-//   storage.local: store_credentials_locally flag + (when checked) encrypted credentials
-//   storage.sync:  non-credential settings + (when unchecked) plaintext credentials
-// The toggle determines where to read credentials from. Plaintext fields use
-// `_plain` suffix so format is unambiguous from the key name alone.
+//   storage.sync:  non-credential settings, store_credentials_locally toggle (1.5.9+),
+//                  and (when toggle off) plaintext credentials
+//   storage.local: encrypted credentials (when toggle on), per-device key
+// Plaintext fields use `_plain` suffix so format is unambiguous from the key.
 chrome.storage.local.get(null, function (localItems) {
 	localItems = localItems || {};
 	chrome.storage.sync.get(null, function (syncItems) {
 		syncItems = syncItems || {};
 
-		var localOnly = (localItems.store_credentials_locally !== false);
-		// Surface the toggle in the UI.
+		// Resolve toggle. As of 1.5.9 it lives in storage.sync. Fall back to
+		// the legacy storage.local copy for users upgrading from 1.5.7/1.5.8.
+		var localOnly;
+		if (syncItems.store_credentials_locally !== undefined) {
+			localOnly = (syncItems.store_credentials_locally !== false);
+		} else if (localItems.store_credentials_locally !== undefined) {
+			localOnly = (localItems.store_credentials_locally !== false);
+		} else {
+			localOnly = true; // fresh install
+		}
 		var toggleEl = document.getElementById("store_credentials_locally");
 		if (toggleEl) toggleEl.checked = localOnly;
 
-		// Load non-credential settings from sync. Skip credential keys —
-		// those are handled below with their own format-aware decode.
-		var CREDENTIAL_FIELDS = ["password", "password_plain", "prowlarr_api_key", "prowlarr_api_key_plain"];
+		// Load non-credential settings from sync. Skip credential keys (handled
+		// below) and the toggle (already handled above).
+		var SKIP_KEYS = [
+			"password", "password_plain", "prowlarr_api_key", "prowlarr_api_key_plain",
+			"store_credentials_locally"
+		];
 		for (var key in syncItems) {
-			if (CREDENTIAL_FIELDS.indexOf(key) !== -1) continue;
+			if (SKIP_KEYS.indexOf(key) !== -1) continue;
 			debug_log(key + "\t" + syncItems[key] + "\t" + (typeof syncItems[key]));
 			var el = document.getElementById(key);
 			if (!el) continue;
@@ -480,7 +501,7 @@ chrome.storage.local.get(null, function (localItems) {
 		// Credentials. Two modes:
 		//   localOnly=true:  encrypted blob in storage.local — decrypt for display
 		//   localOnly=false: plaintext in storage.sync       — display directly
-		// On migration from <=1.5.6: storage.sync had encrypted blobs under
+		// On migration from <1.5.8: storage.sync had encrypted blobs under
 		// `password` / `prowlarr_api_key` (no _plain suffix). Treat that as
 		// encrypted-mode source data on first load — only the device whose
 		// local key created the blob can decrypt it. global_options.js's

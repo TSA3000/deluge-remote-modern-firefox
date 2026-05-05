@@ -63,18 +63,31 @@ function loadConfig() {
 		localItems = localItems || {};
 		syncItems = syncItems || {};
 
-		// Apply non-credential settings from sync first.
-		const credentialFields = ["password", "prowlarr_api_key", "password_plain", "prowlarr_api_key_plain"];
+		// Apply non-credential settings from sync first (skip credential
+		// fields and the toggle, both have special handling below).
+		const skipKeys = [
+			"password", "prowlarr_api_key", "password_plain", "prowlarr_api_key_plain",
+			"store_credentials_locally"
+		];
 		for (const k in syncItems) {
-			if (credentialFields.includes(k)) continue;
+			if (skipKeys.includes(k)) continue;
 			ExtensionConfig[k] = syncItems[k];
 		}
 
-		const localOnly = (localItems.store_credentials_locally !== false);
+		// Resolve toggle. As of 1.5.9 it lives in storage.sync. Fall back to
+		// the legacy storage.local copy for users upgrading from 1.5.7/1.5.8.
+		let localOnly;
+		if (syncItems.store_credentials_locally !== undefined) {
+			localOnly = (syncItems.store_credentials_locally !== false);
+		} else if (localItems.store_credentials_locally !== undefined) {
+			localOnly = (localItems.store_credentials_locally !== false);
+		} else {
+			localOnly = true; // fresh install
+		}
 		ExtensionConfig.store_credentials_locally = localOnly;
 
 		if (localOnly) {
-			// Encrypted: read from local; legacy fall-back to sync (pre-1.5.7).
+			// Encrypted: read from local; legacy fall-back to sync (<1.5.8).
 			ExtensionConfig.password = localItems.password !== undefined
 				? localItems.password : syncItems.password;
 			ExtensionConfig.prowlarr_api_key = localItems.prowlarr_api_key !== undefined
@@ -95,26 +108,30 @@ let _configReady = loadConfig();
 function waitForConfig() { return _configReady; }
 
 chrome.storage.onChanged.addListener((changes, namespace) => {
-	const credentialFields = ["password", "prowlarr_api_key", "password_plain", "prowlarr_api_key_plain"];
 	for (const key in changes) {
-		// In encrypted-local mode, sync writes for credential fields are
-		// stale (other devices in plaintext mode, or pre-1.5.7 leftovers).
-		// Drop them so they don't overwrite the authoritative local copy.
-		if (
-			namespace === "sync" &&
-			credentialFields.includes(key) &&
-			ExtensionConfig.store_credentials_locally !== false
-		) {
-			continue;
-		}
-		// Map the on-the-wire key name to the runtime field name.
-		// password_plain → password, prowlarr_api_key_plain → prowlarr_api_key.
+		// Map plaintext sync field names to the unified runtime field names.
 		let runtimeKey = key;
 		if (key === "password_plain") runtimeKey = "password";
 		if (key === "prowlarr_api_key_plain") runtimeKey = "prowlarr_api_key";
+
+		// Encrypted blobs in storage.sync (legacy <1.5.8) are never read by
+		// the runtime — they're cleaned up by the migration block in
+		// global_options.js. Drop them silently.
+		if (namespace === "sync" && (key === "password" || key === "prowlarr_api_key")) {
+			continue;
+		}
+
 		ExtensionConfig[runtimeKey] = changes[key].newValue;
+
 		if (key === "context_menu") {
 			updateContextMenu(changes[key].newValue);
+		}
+
+		// Toggle flipped to OFF (e.g. via sync from another device): the
+		// encrypted blob in this device's storage.local is now stale. Clear
+		// it so PasswordCrypto.resolveCredential doesn't see leftover state.
+		if (key === "store_credentials_locally" && changes[key].newValue === false) {
+			chrome.storage.local.remove(["password", "prowlarr_api_key"]);
 		}
 	}
 	// Ensure subsequent callers see latest values

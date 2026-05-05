@@ -2,58 +2,64 @@
 
 ---
 
-## v1.5.8 — Plain-Text Sync Mode (Multi-Device Convenience)
+## v1.5.9 — Multi-Device Credentials: Plaintext Sync with Account-Wide Toggle
 *2026-05-05*
 
-Patch release reworking how the **"Keep credentials on this device only"** checkbox (added in v1.5.7) handles its unchecked state, so that toggle now means something useful for multi-device users.
+Patch release reworking how the **"Keep credentials on this device only"** checkbox (added in v1.5.7) actually behaves, so that the multi-device convenience mode genuinely works across devices without the password-prompt loop or per-device manual setup.
 
-### Background
+### What Was Wrong in 1.5.7
 
-v1.5.7 introduced the toggle but treated both modes as encrypted: the only difference was whether the encrypted blob was *also* mirrored into `storage.sync`. Because the encryption key is per-install (lives in `storage.local`, never syncs), mirroring the encrypted blob to sync didn't actually help multi-device users — other devices still couldn't decrypt it. Effectively the toggle was a no-op for its stated purpose.
+v1.5.7 introduced the toggle but treated both modes as encrypted: the only difference was whether the encrypted blob was *also* mirrored into `storage.sync`. Two problems:
 
-### What's New in 1.5.8
+1. **The toggle was a no-op for its stated purpose.** Mirroring the encrypted blob to sync didn't help multi-device users because the AES-GCM encryption key is per-install (lives in `storage.local`, never syncs). PC2 received PC1's ciphertext but couldn't decrypt it — same as before the toggle existed.
+2. **Even if 1.5.7's "unchecked" mode had stored plaintext** (it didn't), the toggle itself was per-device — PC1 unchecking wouldn't have flipped PC2's mode, so PC2 would have ignored any plaintext arriving via sync.
 
-The two modes are now genuinely different:
+### What's Fixed in 1.5.9
 
-- **Checked (default, more secure)** — Your Deluge password and Prowlarr API key are AES-GCM encrypted with a key generated on this device, and the encrypted blob is kept in `storage.local` only. Credentials never leave this device. Same as v1.5.7's checked mode.
+The two modes are now genuinely different, and the toggle is now account-wide:
 
-- **Unchecked (less secure, multi-device convenience)** — Your password and API key are stored as **plain text** in `storage.sync` and shared across all devices signed into the same browser account. Anyone with access to that account can read them. Use only if you want one password to apply across all devices and accept the trade-off.
+- **Checked (default, more secure)** — Your Deluge password and Prowlarr API key are AES-GCM encrypted with a key unique to each device, and the encrypted blobs are kept in `storage.local` only. Credentials never leave this device.
 
-The helper text under the checkbox now states this trade-off plainly.
+- **Unchecked (less secure, multi-device convenience)** — Your password and API key are stored as **plain text** in `storage.sync` and shared across every device signed into the same browser account. Anyone with access to your browser account can read them.
+
+- **The toggle itself syncs.** Storing it in `storage.sync.store_credentials_locally` means unchecking on PC1 propagates the mode change to every device on the same account. PC2 receives the toggle flip and the new plaintext credentials together, switches to plaintext mode automatically, and clears its now-stale encrypted blob from `storage.local`. No per-device manual setup needed.
+
+> **Heads up — re-checking the toggle:** When you switch *back* from plaintext-sync to encrypted-local on any one device, that device re-encrypts the plaintext with its own per-device key, and the plaintext is wiped from sync. Other devices see the toggle flip too and switch back to encrypted mode, but they don't have an encrypted blob of their own yet — you'll need to re-enter the password once on each device after re-enabling encrypted mode. This is unavoidable: per-device keys can't decrypt each other's blobs, and re-encrypting on a device's behalf without explicit user action would defeat the security point.
+
+The helper text under the checkbox now states the trade-off plainly and notes that the setting is account-wide.
 
 ### Storage Layout
 
-- `storage.local.password` — encrypted blob (toggle on)
-- `storage.local.prowlarr_api_key` — encrypted blob (toggle on)
-- `storage.sync.password_plain` — plaintext (toggle off)
-- `storage.sync.prowlarr_api_key_plain` — plaintext (toggle off)
-- `storage.local.store_credentials_locally` — the per-device toggle itself
+- `storage.sync.store_credentials_locally` — toggle (account-wide as of 1.5.9)
+- `storage.sync.password_plain` — plaintext password (when toggle off)
+- `storage.sync.prowlarr_api_key_plain` — plaintext API key (when toggle off)
+- `storage.local.password` — encrypted blob (when toggle on)
+- `storage.local.prowlarr_api_key` — encrypted blob (when toggle on)
+- `storage.local.encryption_key_jwk` — per-device AES-GCM key (never syncs)
 
 The `_plain` suffix on the plaintext fields makes the storage format unambiguous from the key name alone — code can never accidentally treat plaintext as ciphertext or vice versa.
 
 ### Migration on Upgrade
 
-Two cohorts:
-
-- **From v1.5.7** — your existing toggle setting is preserved. Encrypted blobs already in `storage.local` keep working. Legacy encrypted blobs that v1.5.7 wrote to `storage.sync` get cleaned up on first launch — they're not used by the new design. If your toggle was off in 1.5.7, you'll need to re-enter the password once after upgrading (the previously-synced encrypted blob is unreadable on other devices anyway, so this matches what you'd have hit on each new device).
-- **From v1.5.6 or earlier** — the toggle defaults to checked (secure mode). Legacy encrypted blobs in `storage.sync` get copied into `storage.local` on first launch and removed from sync. The active device works seamlessly without a re-prompt; secondary devices prompt once for the password.
+- **From v1.5.7** — your existing toggle setting is preserved and moved from `storage.local` to `storage.sync`. Encrypted blobs already in `storage.local` keep working in encrypted mode. Legacy encrypted blobs in `storage.sync` get cleaned up. If your toggle was off in 1.5.7, you'll need to re-enter the password once after upgrading (the previously-synced encrypted blob is unreadable on other devices anyway).
+- **From v1.5.6 or earlier** — the toggle defaults to checked (secure mode) and goes straight into `storage.sync`. Legacy encrypted blobs in `storage.sync` get copied into `storage.local` on first launch and removed from sync. The active device works seamlessly without a re-prompt; secondary devices prompt once for the password.
 
 ### Files Changed
 
 | File | Change |
 |---|---|
-| `manifest.json` | Version bumped to `1.5.8` |
-| `options.html` | Helper text under the toggle rewritten to spell out the security trade-off explicitly |
-| `js/global_options.js` | Plaintext sync mode reads from `storage.sync.{password,prowlarr_api_key}_plain`; encrypted-local mode unchanged; migration extended to cover v1.5.7 cohort |
-| `js/options.js` | Save logic encrypts to `storage.local` or writes plaintext to `storage.sync` depending on toggle; aggressively cleans up the unused namespace on every Apply |
+| `manifest.json` | Version bumped to `1.5.9` |
+| `options.html` | New helper text under the toggle spells out the security trade-off and the account-wide scope |
+| `js/global_options.js` | Toggle resolution prefers `storage.sync` with `storage.local` legacy fallback; onChanged maps `password_plain`/`prowlarr_api_key_plain` to runtime fields and clears stale encrypted blobs from local when toggle flips off; migration moves the toggle from local to sync |
+| `js/options.js` | Save logic encrypts to `storage.local` or writes plaintext to `storage.sync` depending on toggle; toggle write goes to `syncSettings`; aggressively cleans up the unused namespace on every Apply; legacy `store_credentials_locally` in `storage.local` removed each Apply |
 | `js/background.js` | `loadConfig()` resolves credentials from the active mode's namespace; `onChanged` listener applies the same routing |
-| `js/crypto.js` | Header documents the dual-format model; new `PasswordCrypto.resolveCredential(value, localOnly)` helper that returns plaintext regardless of mode so runtime code (login, Prowlarr API calls) stays mode-agnostic |
+| `js/crypto.js` | Header documents the account-wide-toggle, dual-format model; new `PasswordCrypto.resolveCredential(value, localOnly)` helper that returns plaintext regardless of mode so runtime code stays mode-agnostic |
 | `RELEASE_NOTES.md` | This entry |
 | `README.md` | Version history note |
 
 ### Compatibility
 
-- Storage schema is forward-compatible. The `_plain` field names are new in 1.5.8.
+- Storage schema is forward-compatible. The `_plain` field names and the sync-located toggle are both new in 1.5.9.
 - No permissions changes.
 - No AMO-safety regression (`innerHTML`-free code preserved).
 

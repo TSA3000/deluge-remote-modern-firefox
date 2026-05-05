@@ -1,8 +1,9 @@
 /*
  * Credential storage and AES-GCM encryption (Web Crypto API).
  *
- * Two modes, controlled by the per-device flag `store_credentials_locally`
- * (see options.html toggle and global_options.js routing):
+ * Two modes, controlled by the account-wide flag `store_credentials_locally`
+ * (1.5.9+: lives in storage.sync — toggling it on one device propagates the
+ * mode change to all devices on the same browser account):
  *
  *   ENCRYPTED LOCAL (toggle on, default — more secure):
  *     • AES-GCM 256-bit key generated per-install, stored in
