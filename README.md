@@ -47,6 +47,12 @@ All DOM manipulation uses safe methods (`createElement`, `textContent`, `appendC
 
 ## Version History
 
+### 2026-04-23 v1.5.7 — Per-Device Credential Storage (Multi-Device Sync Fix)
+- Fixed repeated password prompts on multi-device setups — encryption key is per-install but credentials were in `storage.sync`, causing devices to fight over the encrypted blob in a loop
+- New "Keep credentials on this device only" checkbox in Basic Setup (default: enabled) — credentials now stay in `storage.local` per-device by default
+- Disabling the option restores synced-credential behavior for single-device users who want browser-account backup
+- One-time migration copies any existing `storage.sync` credentials into `storage.local` on upgrade
+
 ### 2026-04-21 v1.5.6 — Options Status Messages: Only Show What Actually Changed
 - Fixed Apply announcing every setting as "updated" even when only one field was edited — the status block now shows only messages for keys whose value actually changed, and Apply with no edits is silent
 

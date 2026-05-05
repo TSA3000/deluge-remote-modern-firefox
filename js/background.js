@@ -52,10 +52,31 @@ let ExtensionConfig = {
 	prowlarr_selected_indexers: []
 };
 
+// Keys that contain encrypted credentials. Read/write namespace is determined
+// per-device by ExtensionConfig.store_credentials_locally.
+const CREDENTIAL_KEYS = ["password", "prowlarr_api_key"];
+
 function loadConfig() {
-	return chrome.storage.sync.get().then(items => {
-		if (items && Object.keys(items).length > 0) {
-			ExtensionConfig = { ...ExtensionConfig, ...items };
+	return Promise.all([
+		chrome.storage.local.get(null),
+		chrome.storage.sync.get(null)
+	]).then(([localItems, syncItems]) => {
+		localItems = localItems || {};
+		syncItems = syncItems || {};
+
+		// Sync first (gives us non-credential settings + maybe credentials).
+		ExtensionConfig = { ...ExtensionConfig, ...syncItems };
+
+		const localOnly = (localItems.store_credentials_locally !== false);
+		ExtensionConfig.store_credentials_locally = localOnly;
+
+		// In local-only mode, override credential fields with the local copy.
+		if (localOnly) {
+			for (const ck of CREDENTIAL_KEYS) {
+				if (localItems[ck] !== undefined) {
+					ExtensionConfig[ck] = localItems[ck];
+				}
+			}
 		}
 	});
 }
@@ -68,6 +89,16 @@ function waitForConfig() { return _configReady; }
 
 chrome.storage.onChanged.addListener((changes, namespace) => {
 	for (const key in changes) {
+		// In local-only mode, credential changes coming from storage.sync are
+		// stale (other devices, or our own pre-1.5.7 leftovers) and must not
+		// overwrite the authoritative local copy.
+		if (
+			namespace === "sync" &&
+			CREDENTIAL_KEYS.indexOf(key) !== -1 &&
+			ExtensionConfig.store_credentials_locally !== false
+		) {
+			continue;
+		}
 		ExtensionConfig[key] = changes[key].newValue;
 		if (key === "context_menu") {
 			updateContextMenu(changes[key].newValue);

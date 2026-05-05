@@ -156,6 +156,30 @@
                 <span id="test_result"></span>
               </td>
             </tr>
+            <tr>
+              <td></td>
+              <td>
+                <label class="normal" for="store_credentials_locally">
+                  <input
+                    id="store_credentials_locally"
+                    name="store_credentials_locally"
+                    type="checkbox"
+                    value="1"
+                    checked="checked"
+                  />
+                  Keep credentials on this device only
+                </label>
+                <span class="field-hint">
+                  <br />When enabled, your Deluge password and Prowlarr API key
+                  are stored encrypted on this device only — they
+                  <strong>won't sync</strong> via Firefox Sync.
+                  <br /><strong>Recommended for multi-device setups</strong>:
+                  each install uses a unique encryption key, so cross-device
+                  sync of encrypted credentials causes repeated password
+                  prompts.
+                </span>
+              </td>
+            </tr>
             <tr id="http_warning_row" style="display: none;">
               <td></td>
               <td>

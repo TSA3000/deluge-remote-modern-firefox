@@ -14,7 +14,13 @@ function saveOptions(callback) {
 	var prowlarrKeyChanged = (plainProwlarrKey !== _originalProwlarrApiKey);
 
 	function doSave(passwordValue, prowlarrKeyValue) {
-		var settings = {
+		// Per-device flag: when true, credentials live in storage.local only
+		// and are not synced. Default true. See options.html helper text and
+		// crypto.js header for the multi-device rationale.
+		var localOnly = document.getElementById("store_credentials_locally").checked;
+
+		// Non-credential settings always sync.
+		var syncSettings = {
 			"address_protocol": document.getElementById("address_protocol").value,
 			"address_ip": document.getElementById("address_ip").value,
 			"address_port": document.getElementById("address_port").value,
@@ -42,24 +48,44 @@ function saveOptions(callback) {
 			"version": chrome.runtime.getManifest().version
 		};
 
-		// Only include password if it changed
+		// Local-only settings: the per-device toggle itself, plus credentials
+		// (always written here so toggling modes is seamless — local acts as
+		// a cache even in synced mode).
+		var localSettings = {
+			"store_credentials_locally": localOnly
+		};
+
 		if (passwordChanged) {
-			settings.password = passwordValue;
+			localSettings.password = passwordValue;
+			if (!localOnly) {
+				// Synced mode: also publish to storage.sync so other devices see it.
+				syncSettings.password = passwordValue;
+			}
 			_originalPassword = plainPassword;
 			_storedEncryptedPassword = passwordValue;
 		}
 
-		// Only include Prowlarr API key if it changed
 		if (prowlarrKeyChanged) {
-			settings.prowlarr_api_key = prowlarrKeyValue;
+			localSettings.prowlarr_api_key = prowlarrKeyValue;
+			if (!localOnly) {
+				syncSettings.prowlarr_api_key = prowlarrKeyValue;
+			}
 			_originalProwlarrApiKey = plainProwlarrKey;
 			_storedEncryptedProwlarrApiKey = prowlarrKeyValue;
 		}
 
-		chrome.storage.sync.set(settings, function () {
+		// Run both writes in parallel. Either failing is non-fatal — the user
+		// will see partial state but no crash.
+		var syncWrite = new Promise(function (resolve) {
+			chrome.storage.sync.set(syncSettings, resolve);
+		});
+		var localWrite = new Promise(function (resolve) {
+			chrome.storage.local.set(localSettings, resolve);
+		});
+		Promise.all([syncWrite, localWrite]).then(function () {
 			debug_log("Settings saved" +
-				(passwordChanged ? " (password encrypted)" : "") +
-				(prowlarrKeyChanged ? " (prowlarr api key encrypted)" : "")
+				(passwordChanged ? " (password encrypted, " + (localOnly ? "local only" : "synced") + ")" : "") +
+				(prowlarrKeyChanged ? " (prowlarr api key encrypted, " + (localOnly ? "local only" : "synced") + ")" : "")
 			);
 			if (callback) callback();
 		});
@@ -372,6 +398,13 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 					messages.push("Prowlarr result limit set to " + prl.options[prl.selectedIndex].text + ".");
 				}
 				break;
+			case "store_credentials_locally":
+				messages.push(
+					storageChange.newValue
+						? "Credentials kept on this device only."
+						: "Credentials will sync via Firefox Sync."
+				);
+				break;
 		}
 	}
 
@@ -402,58 +435,84 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 	}
 });
 
-chrome.storage.sync.get(function (items) {
-	for (var key in items) {
-		debug_log(key + "\t" + items[key] + "\t" + (typeof items[key]));
+// Load settings from BOTH namespaces. storage.local holds the per-device
+// credential toggle (`store_credentials_locally`) plus, in local-only mode,
+// the encrypted credentials themselves. storage.sync holds everything else
+// plus, in synced mode, the credentials. Credential keys are populated from
+// whichever namespace owns them according to the flag.
+chrome.storage.local.get(null, function (localItems) {
+	localItems = localItems || {};
+	chrome.storage.sync.get(null, function (syncItems) {
+		syncItems = syncItems || {};
 
-		var el = document.getElementById(key);
-		if (!el) continue;
+		var localOnly = (localItems.store_credentials_locally !== false);
+		// Surface the toggle in the UI.
+		var toggleEl = document.getElementById("store_credentials_locally");
+		if (toggleEl) toggleEl.checked = localOnly;
 
-		if (key === "password") {
-			_storedEncryptedPassword = items[key];
-			PasswordCrypto.decrypt(items[key]).then(function (plainPassword) {
+		// Load non-credential settings from sync.
+		for (var key in syncItems) {
+			if (key === "password" || key === "prowlarr_api_key") continue;
+			debug_log(key + "\t" + syncItems[key] + "\t" + (typeof syncItems[key]));
+			var el = document.getElementById(key);
+			if (!el) continue;
+			if (typeof syncItems[key] === "boolean") {
+				el.checked = syncItems[key];
+			} else {
+				el.value = syncItems[key];
+			}
+		}
+
+		// Resolve credential sources.
+		var passwordCipher = localOnly
+			? (localItems.password !== undefined ? localItems.password : syncItems.password)
+			: (syncItems.password !== undefined ? syncItems.password : localItems.password);
+		var prowlarrCipher = localOnly
+			? (localItems.prowlarr_api_key !== undefined ? localItems.prowlarr_api_key : syncItems.prowlarr_api_key)
+			: (syncItems.prowlarr_api_key !== undefined ? syncItems.prowlarr_api_key : localItems.prowlarr_api_key);
+
+		if (passwordCipher !== undefined && passwordCipher !== "") {
+			_storedEncryptedPassword = passwordCipher;
+			PasswordCrypto.decrypt(passwordCipher).then(function (plainPassword) {
 				document.getElementById("password").value = plainPassword;
 				_originalPassword = plainPassword;
 			}).catch(function () {
 				document.getElementById("password").value = "";
 				_originalPassword = "";
 			});
-		} else if (key === "prowlarr_api_key") {
-			_storedEncryptedProwlarrApiKey = items[key];
-			PasswordCrypto.decrypt(items[key]).then(function (plainKey) {
+		}
+
+		if (prowlarrCipher !== undefined && prowlarrCipher !== "") {
+			_storedEncryptedProwlarrApiKey = prowlarrCipher;
+			PasswordCrypto.decrypt(prowlarrCipher).then(function (plainKey) {
 				document.getElementById("prowlarr_api_key").value = plainKey;
 				_originalProwlarrApiKey = plainKey;
 			}).catch(function () {
 				document.getElementById("prowlarr_api_key").value = "";
 				_originalProwlarrApiKey = "";
 			});
-		} else if (typeof items[key] === "boolean") {
-			el.checked = items[key];
-		} else {
-			el.value = items[key];
 		}
-	}
 
-	if (window.location.search === "?newver=true" && Object.keys(items).length > 0) {
-		debug_log("Version upgrade. Re-saving settings.");
-		saveOptions();
-	}
+		if (window.location.search === "?newver=true" && Object.keys(syncItems).length > 0) {
+			debug_log("Version upgrade. Re-saving settings.");
+			saveOptions();
+		}
 
-	// Refresh URL preview after settings loaded
-	var updateBtn = document.getElementById("url_preview_value");
-	if (updateBtn) {
-		// Trigger the input event chain so preview + HTTP warning update
-		var evt = new Event("input");
-		document.getElementById("address_protocol").dispatchEvent(new Event("change"));
-	}
+		// Refresh URL preview after settings loaded
+		var updateBtn = document.getElementById("url_preview_value");
+		if (updateBtn) {
+			// Trigger the input event chain so preview + HTTP warning update
+			document.getElementById("address_protocol").dispatchEvent(new Event("change"));
+		}
 
-	// Sync the Prowlarr fieldset visibility and its URL preview once values
-	// are loaded from storage.
-	var prowlarrEnableEl = document.getElementById("prowlarr_enabled");
-	var prowlarrFieldset = document.getElementById("prowlarr_fieldset");
-	if (prowlarrEnableEl && prowlarrFieldset) {
-		prowlarrFieldset.style.display = prowlarrEnableEl.checked ? "" : "none";
-	}
-	var prowlarrProto = document.getElementById("prowlarr_protocol");
-	if (prowlarrProto) prowlarrProto.dispatchEvent(new Event("change"));
+		// Sync the Prowlarr fieldset visibility and its URL preview once values
+		// are loaded from storage.
+		var prowlarrEnableEl = document.getElementById("prowlarr_enabled");
+		var prowlarrFieldset = document.getElementById("prowlarr_fieldset");
+		if (prowlarrEnableEl && prowlarrFieldset) {
+			prowlarrFieldset.style.display = prowlarrEnableEl.checked ? "" : "none";
+		}
+		var prowlarrProto = document.getElementById("prowlarr_protocol");
+		if (prowlarrProto) prowlarrProto.dispatchEvent(new Event("change"));
+	});
 });

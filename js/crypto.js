@@ -1,10 +1,18 @@
 /*
  * Password encryption using AES-GCM with Web Crypto API.
  *
- * - Encryption key is generated per-installation and stored in chrome.storage.local
- * - Key never syncs to Google's servers
- * - Encrypted password is stored in chrome.storage.sync (syncs, but unreadable without key)
- * - IV is stored alongside ciphertext
+ * - Encryption key is generated per-installation and stored in
+ *   chrome.storage.local. Key never syncs.
+ * - Encrypted credentials are stored in either chrome.storage.local
+ *   (default, recommended) or chrome.storage.sync, controlled by the
+ *   per-device flag `store_credentials_locally`. See options.html for the
+ *   user-facing toggle and global_options.js for the routing logic.
+ * - Multi-device note: each install has its own encryption key, so the
+ *   default local-only mode is the only configuration where multiple
+ *   devices can use the extension without repeated password prompts.
+ *   Sync mode is provided as an opt-in for single-device users who want
+ *   their credentials backed up to their browser account.
+ * - IV is stored alongside ciphertext.
  */
 
 var PasswordCrypto = (function () {
