@@ -8,107 +8,119 @@ var _storedEncryptedProwlarrApiKey = "";
 
 function saveOptions(callback) {
 	var plainPassword = document.getElementById("password").value;
-	var passwordChanged = (plainPassword !== _originalPassword);
-
 	var plainProwlarrKey = document.getElementById("prowlarr_api_key").value;
-	var prowlarrKeyChanged = (plainProwlarrKey !== _originalProwlarrApiKey);
 
-	function doSave(passwordValue, prowlarrKeyValue) {
-		// Per-device flag: when true, credentials live in storage.local only
-		// and are not synced. Default true. See options.html helper text and
-		// crypto.js header for the multi-device rationale.
-		var localOnly = document.getElementById("store_credentials_locally").checked;
+	// Per-device flag:
+	//   true  (checked, default) → password encrypted, kept on this device only
+	//   false (unchecked)        → password stored as plaintext in sync, shared across all devices
+	var localOnly = document.getElementById("store_credentials_locally").checked;
 
-		// Non-credential settings always sync.
-		var syncSettings = {
-			"address_protocol": document.getElementById("address_protocol").value,
-			"address_ip": document.getElementById("address_ip").value,
-			"address_port": document.getElementById("address_port").value,
-			"address_base": document.getElementById("address_base").value,
-			"handle_torrents": document.getElementById("handle_torrents").checked,
-			"handle_magnets": document.getElementById("handle_magnets").checked,
-			"context_menu": document.getElementById("context_menu").checked,
-			"badge_timeout": parseInt(document.getElementById("badge_timeout").value),
-			"refresh_interval": parseInt(document.getElementById("refresh_interval").value),
-			"debug_mode": document.getElementById("debug_mode").checked,
-			"dark_mode": document.getElementById("dark_mode").value,
-			"icon_pack": document.getElementById("icon_pack").value,
-			"torrents_per_page": parseInt(document.getElementById("torrents_per_page").value),
-			"show_per_page_in_popup": document.getElementById("show_per_page_in_popup").checked,
-			"always_show_pagination": document.getElementById("always_show_pagination").checked,
+	// Non-credential settings always sync regardless of mode.
+	var syncSettings = {
+		"address_protocol": document.getElementById("address_protocol").value,
+		"address_ip": document.getElementById("address_ip").value,
+		"address_port": document.getElementById("address_port").value,
+		"address_base": document.getElementById("address_base").value,
+		"handle_torrents": document.getElementById("handle_torrents").checked,
+		"handle_magnets": document.getElementById("handle_magnets").checked,
+		"context_menu": document.getElementById("context_menu").checked,
+		"badge_timeout": parseInt(document.getElementById("badge_timeout").value),
+		"refresh_interval": parseInt(document.getElementById("refresh_interval").value),
+		"debug_mode": document.getElementById("debug_mode").checked,
+		"dark_mode": document.getElementById("dark_mode").value,
+		"icon_pack": document.getElementById("icon_pack").value,
+		"torrents_per_page": parseInt(document.getElementById("torrents_per_page").value),
+		"show_per_page_in_popup": document.getElementById("show_per_page_in_popup").checked,
+		"always_show_pagination": document.getElementById("always_show_pagination").checked,
 
-			// ── Prowlarr ─────────────────────────────────────────────
-			"prowlarr_enabled":       document.getElementById("prowlarr_enabled").checked,
-			"prowlarr_protocol":      document.getElementById("prowlarr_protocol").value,
-			"prowlarr_ip":            document.getElementById("prowlarr_ip").value,
-			"prowlarr_port":          document.getElementById("prowlarr_port").value,
-			"prowlarr_base":          document.getElementById("prowlarr_base").value,
-			"prowlarr_results_limit": parseInt(document.getElementById("prowlarr_results_limit").value),
+		// ── Prowlarr ─────────────────────────────────────────────
+		"prowlarr_enabled":       document.getElementById("prowlarr_enabled").checked,
+		"prowlarr_protocol":      document.getElementById("prowlarr_protocol").value,
+		"prowlarr_ip":            document.getElementById("prowlarr_ip").value,
+		"prowlarr_port":          document.getElementById("prowlarr_port").value,
+		"prowlarr_base":          document.getElementById("prowlarr_base").value,
+		"prowlarr_results_limit": parseInt(document.getElementById("prowlarr_results_limit").value),
 
-			"version": chrome.runtime.getManifest().version
-		};
+		"version": chrome.runtime.getManifest().version
+	};
 
-		// Local-only settings: the per-device toggle itself, plus credentials
-		// (always written here so toggling modes is seamless — local acts as
-		// a cache even in synced mode).
-		var localSettings = {
-			"store_credentials_locally": localOnly
-		};
+	var localSettings = {
+		"store_credentials_locally": localOnly
+	};
 
-		if (passwordChanged) {
-			localSettings.password = passwordValue;
-			if (!localOnly) {
-				// Synced mode: also publish to storage.sync so other devices see it.
-				syncSettings.password = passwordValue;
+	// Cleanup lists — credentials always live in exactly one namespace at a
+	// time. Whichever one we aren't writing to gets wiped to prevent stale
+	// data from a previous mode.
+	var syncRemove = [];
+	var localRemove = [];
+
+	function finishSave(encryptedPassword, encryptedProwlarrKey) {
+		if (localOnly) {
+			// ─── Encrypted local mode (more secure) ─────────────────
+			// Encrypted blobs go into storage.local.password / .prowlarr_api_key.
+			// Wipe any plaintext from sync, plus legacy v1.5.6 encrypted blobs.
+			if (encryptedPassword !== null) {
+				localSettings.password = encryptedPassword;
+				_originalPassword = plainPassword;
+				_storedEncryptedPassword = encryptedPassword;
 			}
+			if (encryptedProwlarrKey !== null) {
+				localSettings.prowlarr_api_key = encryptedProwlarrKey;
+				_originalProwlarrApiKey = plainProwlarrKey;
+				_storedEncryptedProwlarrApiKey = encryptedProwlarrKey;
+			}
+			syncRemove.push("password", "password_plain", "prowlarr_api_key", "prowlarr_api_key_plain");
+		} else {
+			// ─── Plaintext sync mode (less secure, multi-device) ────
+			// Plaintext goes to storage.sync.password_plain / .prowlarr_api_key_plain.
+			// We always rewrite plaintext on Apply so toggling FROM encrypted
+			// mode propagates correctly even if the password didn't change.
+			syncSettings.password_plain = plainPassword;
+			syncSettings.prowlarr_api_key_plain = plainProwlarrKey;
 			_originalPassword = plainPassword;
-			_storedEncryptedPassword = passwordValue;
-		}
-
-		if (prowlarrKeyChanged) {
-			localSettings.prowlarr_api_key = prowlarrKeyValue;
-			if (!localOnly) {
-				syncSettings.prowlarr_api_key = prowlarrKeyValue;
-			}
 			_originalProwlarrApiKey = plainProwlarrKey;
-			_storedEncryptedProwlarrApiKey = prowlarrKeyValue;
+			// Wipe encrypted blobs from local + legacy encrypted from sync.
+			localRemove.push("password", "prowlarr_api_key");
+			syncRemove.push("password", "prowlarr_api_key");
 		}
 
-		// Run both writes in parallel. Either failing is non-fatal — the user
-		// will see partial state but no crash.
-		var syncWrite = new Promise(function (resolve) {
-			chrome.storage.sync.set(syncSettings, resolve);
-		});
-		var localWrite = new Promise(function (resolve) {
-			chrome.storage.local.set(localSettings, resolve);
-		});
-		Promise.all([syncWrite, localWrite]).then(function () {
-			debug_log("Settings saved" +
-				(passwordChanged ? " (password encrypted, " + (localOnly ? "local only" : "synced") + ")" : "") +
-				(prowlarrKeyChanged ? " (prowlarr api key encrypted, " + (localOnly ? "local only" : "synced") + ")" : "")
-			);
+		Promise.all([
+			new Promise(function (r) { chrome.storage.sync.set(syncSettings, r); }),
+			new Promise(function (r) { chrome.storage.local.set(localSettings, r); }),
+			syncRemove.length ? new Promise(function (r) { chrome.storage.sync.remove(syncRemove, r); }) : Promise.resolve(),
+			localRemove.length ? new Promise(function (r) { chrome.storage.local.remove(localRemove, r); }) : Promise.resolve()
+		]).then(function () {
+			debug_log("Settings saved (mode: " + (localOnly ? "encrypted local" : "plaintext sync") + ")");
 			if (callback) callback();
 		});
 	}
 
-	// Encrypt whichever secrets changed, chained through Promises
-	var pwPromise = passwordChanged
-		? PasswordCrypto.encrypt(plainPassword).catch(function (err) {
-			console.error("Failed to encrypt password:", err);
-			return plainPassword;
-		})
-		: Promise.resolve(null);
+	// In encrypted-local mode we encrypt before writing; in plaintext-sync
+	// mode we don't bother (faster + plaintext is what we're writing anyway).
+	if (localOnly) {
+		var passwordChanged = (plainPassword !== _originalPassword);
+		var prowlarrKeyChanged = (plainProwlarrKey !== _originalProwlarrApiKey);
 
-	var pkPromise = prowlarrKeyChanged
-		? PasswordCrypto.encrypt(plainProwlarrKey).catch(function (err) {
-			console.error("Failed to encrypt Prowlarr API key:", err);
-			return plainProwlarrKey;
-		})
-		: Promise.resolve(null);
+		var pwPromise = passwordChanged
+			? PasswordCrypto.encrypt(plainPassword).catch(function (err) {
+				console.error("Failed to encrypt password:", err);
+				return null;
+			})
+			: Promise.resolve(null);
+		var keyPromise = prowlarrKeyChanged
+			? PasswordCrypto.encrypt(plainProwlarrKey).catch(function (err) {
+				console.error("Failed to encrypt prowlarr api key:", err);
+				return null;
+			})
+			: Promise.resolve(null);
 
-	Promise.all([pwPromise, pkPromise]).then(function (values) {
-		doSave(values[0], values[1]);
-	});
+		Promise.all([pwPromise, keyPromise]).then(function (results) {
+			finishSave(results[0], results[1]);
+		});
+	} else {
+		// Plaintext mode — no encryption work to do.
+		finishSave(null, null);
+	}
 }
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -401,8 +413,8 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 			case "store_credentials_locally":
 				messages.push(
 					storageChange.newValue
-						? "Credentials kept on this device only."
-						: "Credentials will sync via Firefox Sync."
+						? "Credentials encrypted on this device only. (More secure)"
+						: "Credentials syncing in plain text across devices. (Less secure)"
 				);
 				break;
 		}
@@ -435,11 +447,11 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 	}
 });
 
-// Load settings from BOTH namespaces. storage.local holds the per-device
-// credential toggle (`store_credentials_locally`) plus, in local-only mode,
-// the encrypted credentials themselves. storage.sync holds everything else
-// plus, in synced mode, the credentials. Credential keys are populated from
-// whichever namespace owns them according to the flag.
+// Load settings from BOTH namespaces.
+//   storage.local: store_credentials_locally flag + (when checked) encrypted credentials
+//   storage.sync:  non-credential settings + (when unchecked) plaintext credentials
+// The toggle determines where to read credentials from. Plaintext fields use
+// `_plain` suffix so format is unambiguous from the key name alone.
 chrome.storage.local.get(null, function (localItems) {
 	localItems = localItems || {};
 	chrome.storage.sync.get(null, function (syncItems) {
@@ -450,9 +462,11 @@ chrome.storage.local.get(null, function (localItems) {
 		var toggleEl = document.getElementById("store_credentials_locally");
 		if (toggleEl) toggleEl.checked = localOnly;
 
-		// Load non-credential settings from sync.
+		// Load non-credential settings from sync. Skip credential keys —
+		// those are handled below with their own format-aware decode.
+		var CREDENTIAL_FIELDS = ["password", "password_plain", "prowlarr_api_key", "prowlarr_api_key_plain"];
 		for (var key in syncItems) {
-			if (key === "password" || key === "prowlarr_api_key") continue;
+			if (CREDENTIAL_FIELDS.indexOf(key) !== -1) continue;
 			debug_log(key + "\t" + syncItems[key] + "\t" + (typeof syncItems[key]));
 			var el = document.getElementById(key);
 			if (!el) continue;
@@ -463,34 +477,49 @@ chrome.storage.local.get(null, function (localItems) {
 			}
 		}
 
-		// Resolve credential sources.
-		var passwordCipher = localOnly
-			? (localItems.password !== undefined ? localItems.password : syncItems.password)
-			: (syncItems.password !== undefined ? syncItems.password : localItems.password);
-		var prowlarrCipher = localOnly
-			? (localItems.prowlarr_api_key !== undefined ? localItems.prowlarr_api_key : syncItems.prowlarr_api_key)
-			: (syncItems.prowlarr_api_key !== undefined ? syncItems.prowlarr_api_key : localItems.prowlarr_api_key);
-
-		if (passwordCipher !== undefined && passwordCipher !== "") {
-			_storedEncryptedPassword = passwordCipher;
-			PasswordCrypto.decrypt(passwordCipher).then(function (plainPassword) {
-				document.getElementById("password").value = plainPassword;
-				_originalPassword = plainPassword;
-			}).catch(function () {
-				document.getElementById("password").value = "";
-				_originalPassword = "";
-			});
-		}
-
-		if (prowlarrCipher !== undefined && prowlarrCipher !== "") {
-			_storedEncryptedProwlarrApiKey = prowlarrCipher;
-			PasswordCrypto.decrypt(prowlarrCipher).then(function (plainKey) {
+		// Credentials. Two modes:
+		//   localOnly=true:  encrypted blob in storage.local — decrypt for display
+		//   localOnly=false: plaintext in storage.sync       — display directly
+		// On migration from <=1.5.6: storage.sync had encrypted blobs under
+		// `password` / `prowlarr_api_key` (no _plain suffix). Treat that as
+		// encrypted-mode source data on first load — only the device whose
+		// local key created the blob can decrypt it. global_options.js's
+		// migration block writes the result into storage.local.password.
+		if (localOnly) {
+			var encrypted = localItems.password !== undefined ? localItems.password : syncItems.password;
+			if (encrypted) {
+				_storedEncryptedPassword = encrypted;
+				PasswordCrypto.decrypt(encrypted).then(function (plainPassword) {
+					document.getElementById("password").value = plainPassword;
+					_originalPassword = plainPassword;
+				}).catch(function () {
+					document.getElementById("password").value = "";
+					_originalPassword = "";
+				});
+			}
+			var encryptedKey = localItems.prowlarr_api_key !== undefined ? localItems.prowlarr_api_key : syncItems.prowlarr_api_key;
+			if (encryptedKey) {
+				_storedEncryptedProwlarrApiKey = encryptedKey;
+				PasswordCrypto.decrypt(encryptedKey).then(function (plainKey) {
+					document.getElementById("prowlarr_api_key").value = plainKey;
+					_originalProwlarrApiKey = plainKey;
+				}).catch(function () {
+					document.getElementById("prowlarr_api_key").value = "";
+					_originalProwlarrApiKey = "";
+				});
+			}
+		} else {
+			// Plaintext sync mode — direct read.
+			var plainPwd = syncItems.password_plain;
+			if (plainPwd !== undefined) {
+				document.getElementById("password").value = plainPwd;
+				_originalPassword = plainPwd;
+			}
+			var plainKey = syncItems.prowlarr_api_key_plain;
+			if (plainKey !== undefined) {
 				document.getElementById("prowlarr_api_key").value = plainKey;
 				_originalProwlarrApiKey = plainKey;
-			}).catch(function () {
-				document.getElementById("prowlarr_api_key").value = "";
-				_originalProwlarrApiKey = "";
-			});
+			}
 		}
 
 		if (window.location.search === "?newver=true" && Object.keys(syncItems).length > 0) {
@@ -501,7 +530,6 @@ chrome.storage.local.get(null, function (localItems) {
 		// Refresh URL preview after settings loaded
 		var updateBtn = document.getElementById("url_preview_value");
 		if (updateBtn) {
-			// Trigger the input event chain so preview + HTTP warning update
 			document.getElementById("address_protocol").dispatchEvent(new Event("change"));
 		}
 

@@ -2,6 +2,63 @@
 
 ---
 
+## v1.5.8 — Plain-Text Sync Mode (Multi-Device Convenience)
+*2026-05-05*
+
+Patch release reworking how the **"Keep credentials on this device only"** checkbox (added in v1.5.7) handles its unchecked state, so that toggle now means something useful for multi-device users.
+
+### Background
+
+v1.5.7 introduced the toggle but treated both modes as encrypted: the only difference was whether the encrypted blob was *also* mirrored into `storage.sync`. Because the encryption key is per-install (lives in `storage.local`, never syncs), mirroring the encrypted blob to sync didn't actually help multi-device users — other devices still couldn't decrypt it. Effectively the toggle was a no-op for its stated purpose.
+
+### What's New in 1.5.8
+
+The two modes are now genuinely different:
+
+- **Checked (default, more secure)** — Your Deluge password and Prowlarr API key are AES-GCM encrypted with a key generated on this device, and the encrypted blob is kept in `storage.local` only. Credentials never leave this device. Same as v1.5.7's checked mode.
+
+- **Unchecked (less secure, multi-device convenience)** — Your password and API key are stored as **plain text** in `storage.sync` and shared across all devices signed into the same browser account. Anyone with access to that account can read them. Use only if you want one password to apply across all devices and accept the trade-off.
+
+The helper text under the checkbox now states this trade-off plainly.
+
+### Storage Layout
+
+- `storage.local.password` — encrypted blob (toggle on)
+- `storage.local.prowlarr_api_key` — encrypted blob (toggle on)
+- `storage.sync.password_plain` — plaintext (toggle off)
+- `storage.sync.prowlarr_api_key_plain` — plaintext (toggle off)
+- `storage.local.store_credentials_locally` — the per-device toggle itself
+
+The `_plain` suffix on the plaintext fields makes the storage format unambiguous from the key name alone — code can never accidentally treat plaintext as ciphertext or vice versa.
+
+### Migration on Upgrade
+
+Two cohorts:
+
+- **From v1.5.7** — your existing toggle setting is preserved. Encrypted blobs already in `storage.local` keep working. Legacy encrypted blobs that v1.5.7 wrote to `storage.sync` get cleaned up on first launch — they're not used by the new design. If your toggle was off in 1.5.7, you'll need to re-enter the password once after upgrading (the previously-synced encrypted blob is unreadable on other devices anyway, so this matches what you'd have hit on each new device).
+- **From v1.5.6 or earlier** — the toggle defaults to checked (secure mode). Legacy encrypted blobs in `storage.sync` get copied into `storage.local` on first launch and removed from sync. The active device works seamlessly without a re-prompt; secondary devices prompt once for the password.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `manifest.json` | Version bumped to `1.5.8` |
+| `options.html` | Helper text under the toggle rewritten to spell out the security trade-off explicitly |
+| `js/global_options.js` | Plaintext sync mode reads from `storage.sync.{password,prowlarr_api_key}_plain`; encrypted-local mode unchanged; migration extended to cover v1.5.7 cohort |
+| `js/options.js` | Save logic encrypts to `storage.local` or writes plaintext to `storage.sync` depending on toggle; aggressively cleans up the unused namespace on every Apply |
+| `js/background.js` | `loadConfig()` resolves credentials from the active mode's namespace; `onChanged` listener applies the same routing |
+| `js/crypto.js` | Header documents the dual-format model; new `PasswordCrypto.resolveCredential(value, localOnly)` helper that returns plaintext regardless of mode so runtime code (login, Prowlarr API calls) stays mode-agnostic |
+| `RELEASE_NOTES.md` | This entry |
+| `README.md` | Version history note |
+
+### Compatibility
+
+- Storage schema is forward-compatible. The `_plain` field names are new in 1.5.8.
+- No permissions changes.
+- No AMO-safety regression (`innerHTML`-free code preserved).
+
+---
+
 ## v1.5.7 — Per-Device Credential Storage (Multi-Device Sync Fix)
 *2026-04-23*
 
@@ -13,27 +70,8 @@ Patch release fixing a credential-sync deadlock that broke the extension on mult
 
 ### New Behavior
 
-- **New per-device option in Basic Setup: "Keep credentials on this device only"** (default: enabled). When enabled, your Deluge password and Prowlarr API key are stored encrypted in `storage.local` only, never syncing to your Firefox account. Each device manages its own credentials independently — no more loop. Helper text in the options page explains the trade-off.
-- **Disabling the option** restores the v1.5.6 behavior of writing credentials to both `storage.local` and `storage.sync`. This is intended for single-device users who want their credentials backed up to their Firefox account; using it on multiple active devices simultaneously will recreate the loop (now with informed consent).
-- **One-time migration on upgrade** — if you're upgrading from v1.5.6 with credentials in `storage.sync`, the migration runs automatically on next launch: the encrypted password is copied into `storage.local` and the new local-only flag is set. Your active device keeps working without a re-prompt; secondary devices get the same migration on their next launch and prompt once for the password (since their local key can't decrypt the other device's blob), then work seamlessly thereafter.
-
-### Files Changed
-
-| File | Change |
-|---|---|
-| `manifest.json` | Version bumped to `1.5.7` |
-| `options.html` | New checkbox row "Keep credentials on this device only" added to Basic Setup with explanatory helper text |
-| `js/global_options.js` | New `store_credentials_locally: true` default; new `CREDENTIAL_KEYS` constant; load logic merges `storage.local` and `storage.sync` and routes credential keys based on the flag; one-time upgrade migration; `onChanged` listener ignores stale sync writes for credentials when in local-only mode |
-| `js/options.js` | Save logic splits writes between `storage.local` (toggle + credentials always cached) and `storage.sync` (non-credentials, plus credentials only when synced mode is selected); load logic merges both namespaces; new status message for the toggle |
-| `js/background.js` | `loadConfig()` reads from both namespaces and applies the same routing; `onChanged` listener mirrors the same stale-sync filter |
-| `js/crypto.js` | Header comment updated to reflect dual-namespace architecture |
-
-### Compatibility
-
-- **Storage schema is backward-compatible**: the new `store_credentials_locally` key lives in `storage.local`. Existing sync data is left untouched (preserved as a fallback for users who downgrade or stay in synced mode).
-- **No permissions changes**.
-- **No AMO-safety impact** (`innerHTML`-free code preserved).
-- **Upgrades from v1.5.6 are transparent on the active device**. Secondary devices prompt once for the password after migration, then work normally.
+- New per-device option in Basic Setup: **"Keep credentials on this device only"** (default: enabled). When enabled, your Deluge password and Prowlarr API key are stored encrypted in `storage.local` only. Note: in 1.5.7 the unchecked state still encrypted credentials before sending them to sync — see v1.5.8 for the redesigned plaintext-sync behavior.
+- One-time migration on upgrade copies any existing `storage.sync` credentials into `storage.local`.
 
 ---
 

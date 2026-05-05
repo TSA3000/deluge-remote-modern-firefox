@@ -1,18 +1,28 @@
 /*
- * Password encryption using AES-GCM with Web Crypto API.
+ * Credential storage and AES-GCM encryption (Web Crypto API).
  *
- * - Encryption key is generated per-installation and stored in
- *   chrome.storage.local. Key never syncs.
- * - Encrypted credentials are stored in either chrome.storage.local
- *   (default, recommended) or chrome.storage.sync, controlled by the
- *   per-device flag `store_credentials_locally`. See options.html for the
- *   user-facing toggle and global_options.js for the routing logic.
- * - Multi-device note: each install has its own encryption key, so the
- *   default local-only mode is the only configuration where multiple
- *   devices can use the extension without repeated password prompts.
- *   Sync mode is provided as an opt-in for single-device users who want
- *   their credentials backed up to their browser account.
- * - IV is stored alongside ciphertext.
+ * Two modes, controlled by the per-device flag `store_credentials_locally`
+ * (see options.html toggle and global_options.js routing):
+ *
+ *   ENCRYPTED LOCAL (toggle on, default — more secure):
+ *     • AES-GCM 256-bit key generated per-install, stored in
+ *       storage.local.encryption_key_jwk (never syncs).
+ *     • Encrypted blob (IV + ciphertext, base64) stored in
+ *       storage.local.password / .prowlarr_api_key.
+ *     • Credentials never leave this device in any form.
+ *
+ *   PLAINTEXT SYNC (toggle off — less secure, multi-device convenience):
+ *     • Credentials stored as plaintext strings in
+ *       storage.sync.password_plain / .prowlarr_api_key_plain.
+ *     • Plaintext is shared across all devices signed into the same
+ *       browser account. Anyone with that account can read them.
+ *     • The encryption key still exists in storage.local but is unused.
+ *
+ * Field name encodes format: keys ending in `_plain` are always plaintext;
+ * `password` / `prowlarr_api_key` (no suffix) are always encrypted blobs.
+ *
+ * Runtime code reads the resolved plaintext via PasswordCrypto.resolveCredential
+ * (or just decrypt() in legacy paths that already know they have ciphertext).
  */
 
 var PasswordCrypto = (function () {
@@ -160,6 +170,30 @@ var PasswordCrypto = (function () {
 		}
 		return bytes.buffer;
 	}
+
+	/**
+	 * Resolve a credential field in ExtensionConfig to its plaintext value,
+	 * regardless of which storage mode the user has selected.
+	 *
+	 * Runtime code (background.js login, prowlarr API calls, etc.) shouldn't
+	 * have to care whether a credential was stored encrypted-local or
+	 * plaintext-sync. global_options.js loads either format into
+	 * ExtensionConfig under the unsuffixed name (e.g. ExtensionConfig.password),
+	 * and this helper returns plaintext in both cases.
+	 *
+	 * @param {string} value - ExtensionConfig.password or .prowlarr_api_key
+	 * @param {boolean} localOnly - ExtensionConfig.store_credentials_locally
+	 * @returns {Promise<string>} plaintext, or "" if absent
+	 */
+	pub.resolveCredential = function (value, localOnly) {
+		if (!value) return Promise.resolve("");
+		if (localOnly === false) {
+			// Plaintext-sync mode: value is already plaintext.
+			return Promise.resolve(value);
+		}
+		// Encrypted-local mode: value is an encrypted blob.
+		return pub.decrypt(value);
+	};
 
 	return pub;
 }());
