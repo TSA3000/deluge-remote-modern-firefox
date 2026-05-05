@@ -94,7 +94,7 @@ function loadConfig() {
 				? localItems.prowlarr_api_key : syncItems.prowlarr_api_key;
 		} else {
 			// Plaintext: read from sync.*_plain. Stored under unsuffixed
-			// runtime key for uniform access via PasswordCrypto.resolveCredential.
+			// runtime key for uniform access via PasswordCrypto.decrypt.
 			ExtensionConfig.password = syncItems.password_plain;
 			ExtensionConfig.prowlarr_api_key = syncItems.prowlarr_api_key_plain;
 		}
@@ -129,7 +129,7 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 
 		// Toggle flipped to OFF (e.g. via sync from another device): the
 		// encrypted blob in this device's storage.local is now stale. Clear
-		// it so PasswordCrypto.resolveCredential doesn't see leftover state.
+		// it so PasswordCrypto.decrypt doesn't see leftover state.
 		if (key === "store_credentials_locally" && changes[key].newValue === false) {
 			chrome.storage.local.remove(["password", "prowlarr_api_key"]);
 		}
@@ -248,10 +248,11 @@ const ProwlarrAPI = {
 			return { error: { type: "config", message: "Prowlarr address not configured" } };
 		}
 
-		const apiKey = await PasswordCrypto.resolveCredential(
-			ExtensionConfig.prowlarr_api_key,
-			ExtensionConfig.store_credentials_locally
-		);
+		// PasswordCrypto.decrypt() handles both formats: returns the input
+		// unchanged when it's already plaintext (sync mode), decrypts when
+		// it's an encrypted blob (local mode). See PasswordCrypto definition
+		// below for the format-detection logic.
+		const apiKey = await PasswordCrypto.decrypt(ExtensionConfig.prowlarr_api_key);
 		if (!apiKey) {
 			return { error: { type: "auth", message: "Prowlarr API key not configured" } };
 		}
@@ -427,12 +428,11 @@ const PasswordCrypto = {
 	}
 };
 
-// ── Login (with password decryption when in encrypted-local mode) ──────────
+// ── Login ──────────────────────────────────────────────────────────────────
 async function login() {
-	const plainPassword = await PasswordCrypto.resolveCredential(
-		ExtensionConfig.password,
-		ExtensionConfig.store_credentials_locally
-	);
+	// PasswordCrypto.decrypt() handles both encrypted blobs (local mode) and
+	// plaintext (sync mode) — see its definition for format-detection logic.
+	const plainPassword = await PasswordCrypto.decrypt(ExtensionConfig.password);
 	return DelugeAPI.call("auth.login", [plainPassword]);
 }
 

@@ -47,6 +47,10 @@ All DOM manipulation uses safe methods (`createElement`, `textContent`, `appendC
 
 ## Version History
 
+### 2026-05-05 v1.5.10 — Hotfix: PasswordCrypto.resolveCredential is not a function
+- Fixes runtime crash in v1.5.9 that broke login and Prowlarr API calls — `js/background.js` referenced `PasswordCrypto.resolveCredential` which only exists in `js/crypto.js`, not in the service worker's embedded `PasswordCrypto` object
+- Both call sites now use `PasswordCrypto.decrypt()`, which already auto-detects format (decrypts ciphertext, passes plaintext through unchanged)
+
 ### 2026-05-05 v1.5.9 — Multi-Device Credentials: Plaintext Sync with Account-Wide Toggle
 - Reworks the v1.5.7 toggle so its unchecked state actually does something useful for multi-device users — and the toggle propagates across devices automatically
 - Checked (default, more secure): credentials AES-GCM encrypted in `storage.local` only, never sync
