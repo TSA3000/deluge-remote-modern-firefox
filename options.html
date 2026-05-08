@@ -170,23 +170,19 @@
                   Keep credentials on this device only
                 </label>
                 <span class="field-hint">
-                  <br /><strong>When checked (recommended, more secure):</strong>
-                  your Deluge password and Prowlarr API key are AES-GCM
-                  encrypted with a key unique to each device, and the
-                  encrypted blobs are kept locally — the credentials never
-                  sync.
-                  <br /><strong>When unchecked (less secure):</strong> your
-                  password and API key are stored as <em>plain text</em> in
-                  your browser's sync storage and shared across every device
-                  signed into the same browser account. Anyone with access to
-                  your browser account can read them. Use this only if you
-                  want one set of credentials to apply to all your devices
-                  and accept the trade-off.
-                  <br /><em>Note:</em> this checkbox itself is account-wide —
-                  toggling it on one device propagates the mode change (and,
-                  if turned off, the plain-text credentials) to every device
-                  on the same browser account. Only the encrypted credentials
-                  themselves stay local.
+                  <br />When checked, your Deluge password and Prowlarr API
+                  key are encrypted (AES-GCM, per-device key) and kept in
+                  this browser's local storage. They don't sync to other
+                  devices.
+                  <br />When unchecked, the password and API key are stored
+                  as plain text in your browser's sync storage and shared
+                  across every device signed into the same browser account.
+                  Less secure — anyone with access to your browser account
+                  can read them — but useful if you want the same
+                  credentials on multiple devices.
+                  <br />The checkbox itself syncs across devices. Toggling
+                  it on one device flips the mode on every device on the
+                  account.
                 </span>
               </td>
             </tr>

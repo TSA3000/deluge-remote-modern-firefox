@@ -52,15 +52,9 @@ let ExtensionConfig = {
 	prowlarr_selected_indexers: []
 };
 
-// Storage-key conventions match global_options.js. See crypto.js header for
-// the full picture of where credentials live in each mode.
-//
-// Migration note: the toggle move from storage.local → storage.sync (1.5.9+)
-// is performed by global_options.js when the popup or options page loads.
-// This service worker doesn't migrate on its own — it just reads the legacy
-// local toggle as a fallback. That's safe because every user eventually
-// opens the popup, at which point migration runs and propagates the toggle
-// to sync. Until then, the runtime functions correctly using the local copy.
+// Storage layout matches global_options.js. Migration runs there (in popup /
+// options page contexts) — the SW just falls back to the legacy local toggle
+// until the popup is opened and migration writes to sync.
 
 function loadConfig() {
 	return Promise.all([
@@ -70,8 +64,8 @@ function loadConfig() {
 		localItems = localItems || {};
 		syncItems = syncItems || {};
 
-		// Apply non-credential settings from sync first (skip credential
-		// fields and the toggle, both have special handling below).
+		// Apply non-credential settings from sync (skip credentials / toggle
+		// — handled below).
 		const skipKeys = [
 			"password", "prowlarr_api_key", "password_plain", "prowlarr_api_key_plain",
 			"store_credentials_locally"
@@ -81,49 +75,42 @@ function loadConfig() {
 			ExtensionConfig[k] = syncItems[k];
 		}
 
-		// Resolve toggle. As of 1.5.9 it lives in storage.sync. Fall back to
-		// the legacy storage.local copy for users upgrading from 1.5.7/1.5.8.
+		// Toggle: storage.sync (1.5.9+), fall back to storage.local for 1.5.7/1.5.8 upgrades.
 		let localOnly;
 		if (syncItems.store_credentials_locally !== undefined) {
 			localOnly = (syncItems.store_credentials_locally !== false);
 		} else if (localItems.store_credentials_locally !== undefined) {
 			localOnly = (localItems.store_credentials_locally !== false);
 		} else {
-			localOnly = true; // fresh install
+			localOnly = true;
 		}
 		ExtensionConfig.store_credentials_locally = localOnly;
 
 		if (localOnly) {
-			// Encrypted: read from local; legacy fall-back to sync (<1.5.8).
+			// Encrypted blob from local; <1.5.8 fallback to legacy sync copy.
 			ExtensionConfig.password = localItems.password !== undefined
 				? localItems.password : syncItems.password;
 			ExtensionConfig.prowlarr_api_key = localItems.prowlarr_api_key !== undefined
 				? localItems.prowlarr_api_key : syncItems.prowlarr_api_key;
 		} else {
-			// Plaintext: read from sync.*_plain. Stored under unsuffixed
-			// runtime key for uniform access via PasswordCrypto.decrypt.
 			ExtensionConfig.password = syncItems.password_plain;
 			ExtensionConfig.prowlarr_api_key = syncItems.prowlarr_api_key_plain;
 		}
 	});
 }
 
-// A promise that resolves once the very first loadConfig() has finished.
-// Message handlers await this so they never answer before config is ready
-// (otherwise Prowlarr calls fire during cold-start and return "disabled").
+// Resolves once loadConfig() finishes the first time. Prowlarr / login message
+// handlers await this so they don't answer before config is ready.
 let _configReady = loadConfig();
 function waitForConfig() { return _configReady; }
 
 chrome.storage.onChanged.addListener((changes, namespace) => {
 	for (const key in changes) {
-		// Map plaintext sync field names to the unified runtime field names.
 		let runtimeKey = key;
 		if (key === "password_plain") runtimeKey = "password";
 		if (key === "prowlarr_api_key_plain") runtimeKey = "prowlarr_api_key";
 
-		// Encrypted blobs in storage.sync (legacy <1.5.8) are never read by
-		// the runtime — they're cleaned up by the migration block in
-		// global_options.js. Drop them silently.
+		// Legacy encrypted blobs from <1.5.8 (storage.sync); never read by runtime.
 		if (namespace === "sync" && (key === "password" || key === "prowlarr_api_key")) {
 			continue;
 		}
@@ -134,14 +121,12 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 			updateContextMenu(changes[key].newValue);
 		}
 
-		// Toggle flipped to OFF (e.g. via sync from another device): the
-		// encrypted blob in this device's storage.local is now stale. Clear
-		// it so PasswordCrypto.decrypt doesn't see leftover state.
+		// Toggle just flipped OFF (likely from another device via sync) —
+		// the encrypted blob in storage.local is stale.
 		if (key === "store_credentials_locally" && changes[key].newValue === false) {
 			chrome.storage.local.remove(["password", "prowlarr_api_key"]);
 		}
 	}
-	// Ensure subsequent callers see latest values
 	_configReady = Promise.resolve();
 });
 
@@ -255,10 +240,8 @@ const ProwlarrAPI = {
 			return { error: { type: "config", message: "Prowlarr address not configured" } };
 		}
 
-		// PasswordCrypto.decrypt() handles both formats: returns the input
-		// unchanged when it's already plaintext (sync mode), decrypts when
-		// it's an encrypted blob (local mode). See PasswordCrypto definition
-		// below for the format-detection logic.
+		// decrypt() handles both modes: encrypted blob → plaintext, plaintext
+		// → unchanged. Format is auto-detected via the _encrypted JSON flag.
 		const apiKey = await PasswordCrypto.decrypt(ExtensionConfig.prowlarr_api_key);
 		if (!apiKey) {
 			return { error: { type: "auth", message: "Prowlarr API key not configured" } };
@@ -437,8 +420,7 @@ const PasswordCrypto = {
 
 // ── Login ──────────────────────────────────────────────────────────────────
 async function login() {
-	// PasswordCrypto.decrypt() handles both encrypted blobs (local mode) and
-	// plaintext (sync mode) — see its definition for format-detection logic.
+	// decrypt() handles both modes (see ProwlarrAPI.call comment above).
 	const plainPassword = await PasswordCrypto.decrypt(ExtensionConfig.password);
 	return DelugeAPI.call("auth.login", [plainPassword]);
 }

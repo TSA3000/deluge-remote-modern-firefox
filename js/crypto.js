@@ -1,33 +1,18 @@
 /*
  * Credential storage and AES-GCM encryption (Web Crypto API).
  *
- * Two modes, controlled by the account-wide flag `store_credentials_locally`
- * (1.5.9+: lives in storage.sync — toggling it on one device propagates the
- * mode change to all devices on the same browser account):
+ * The `store_credentials_locally` flag (lives in storage.sync as of 1.5.9, so
+ * it propagates to all devices on the same browser account) selects between:
  *
- *   ENCRYPTED LOCAL (toggle on, default — more secure):
- *     • AES-GCM 256-bit key generated per-install, stored in
- *       storage.local.encryption_key_jwk (never syncs).
- *     • Encrypted blob (IV + ciphertext, base64) stored in
- *       storage.local.password / .prowlarr_api_key.
- *     • Credentials never leave this device in any form.
+ *   ON  - encrypted in storage.local (per-device key in storage.local.encryption_key_jwk).
+ *         Field names: password, prowlarr_api_key.
+ *   OFF - plaintext in storage.sync, shared across devices on the same account.
+ *         Field names: password_plain, prowlarr_api_key_plain.
  *
- *   PLAINTEXT SYNC (toggle off — less secure, multi-device convenience):
- *     • Credentials stored as plaintext strings in
- *       storage.sync.password_plain / .prowlarr_api_key_plain.
- *     • Plaintext is shared across all devices signed into the same
- *       browser account. Anyone with that account can read them.
- *     • The encryption key still exists in storage.local but is unused.
- *
- * Field name encodes format: keys ending in `_plain` are always plaintext;
- * `password` / `prowlarr_api_key` (no suffix) are always encrypted blobs.
- *
- * Runtime code reads ExtensionConfig.password / .prowlarr_api_key — these
- * fields hold whichever format the active mode dictates (encrypted blob
- * or plaintext). Calling PasswordCrypto.decrypt() on the value works in
- * both cases: it auto-detects the format and returns plaintext either way.
- * The optional resolveCredential() helper below is equivalent if you'd
- * rather pass the mode flag explicitly.
+ * The _plain suffix means runtime code can't accidentally treat plaintext as
+ * ciphertext. PasswordCrypto.decrypt() also auto-detects format (presence of
+ * the _encrypted flag in the parsed JSON), so callers don't have to branch on
+ * the mode flag.
  */
 
 var PasswordCrypto = (function () {
@@ -157,7 +142,6 @@ var PasswordCrypto = (function () {
 		}
 	};
 
-	// ── Helpers ──────────────────────────────────────────────────────────
 	function arrayBufferToBase64(buffer) {
 		var bytes = new Uint8Array(buffer);
 		var binary = "";
@@ -175,30 +159,6 @@ var PasswordCrypto = (function () {
 		}
 		return bytes.buffer;
 	}
-
-	/**
-	 * Optional helper — resolve a credential field in ExtensionConfig to its
-	 * plaintext value, given the active mode.
-	 *
-	 * Not currently called by the extension; runtime code uses
-	 * PasswordCrypto.decrypt() directly, which auto-detects format
-	 * (encrypted blobs decrypt, plaintext passes through unchanged). This
-	 * helper exists as an alternative for code that prefers passing the
-	 * mode flag explicitly rather than relying on format auto-detection.
-	 *
-	 * @param {string} value - ExtensionConfig.password or .prowlarr_api_key
-	 * @param {boolean} localOnly - ExtensionConfig.store_credentials_locally
-	 * @returns {Promise<string>} plaintext, or "" if absent
-	 */
-	pub.resolveCredential = function (value, localOnly) {
-		if (!value) return Promise.resolve("");
-		if (localOnly === false) {
-			// Plaintext-sync mode: value is already plaintext.
-			return Promise.resolve(value);
-		}
-		// Encrypted-local mode: value is an encrypted blob.
-		return pub.decrypt(value);
-	};
 
 	return pub;
 }());

@@ -32,45 +32,25 @@ var ExtensionConfig = {
 	prowlarr_selected_indexers: []
 };
 
-// Storage namespace overview (see options.html "Keep credentials on this
-// device only" toggle and crypto.js header for the full picture):
-//
-//   storage.sync (account-wide — syncs to all devices)
-//     • all non-credential settings
-//     • store_credentials_locally  : the toggle itself (1.5.9+: account-wide)
-//     • password_plain             : PLAINTEXT password (when toggle OFF)
-//     • prowlarr_api_key_plain     : PLAINTEXT API key (when toggle OFF)
-//
-//   storage.local (per-device, never syncs)
-//     • password                   : encrypted blob (when toggle ON)
-//     • prowlarr_api_key           : encrypted blob (when toggle ON)
-//     • encryption_key_jwk         : per-device AES-GCM key (managed by crypto.js)
-//
-// Field name encodes format: `_plain` suffix = plaintext, no suffix on
-// credentials = encrypted. This makes accidental decrypt-of-plaintext
-// (or display-of-ciphertext) impossible from the key name alone.
-//
-// Routing rules:
-//   • Encrypted credentials are valid only on the device whose local key
-//     produced them. They never sync.
-//   • Plaintext credentials are valid on every device. When they arrive via
-//     storage.sync, they are authoritative — the toggle has been turned off
-//     somewhere on this account.
+// Storage layout:
+//   storage.sync   non-credential settings, store_credentials_locally,
+//                  and (when toggle OFF) password_plain / prowlarr_api_key_plain.
+//   storage.local  encryption_key_jwk, plus (when toggle ON) password /
+//                  prowlarr_api_key as encrypted blobs.
+// The _plain suffix is defense-in-depth — wrong-format reads can't happen.
 
 chrome.storage.onChanged.addListener(function (changes, namespace) {
 	for (var key in changes) {
-		// Map plaintext sync field names to the unified runtime field names.
-		// runtime ExtensionConfig.password is plaintext when toggle is off,
-		// ciphertext when toggle is on; PasswordCrypto.decrypt() in
-		// background.js handles both formats transparently (see crypto.js
-		// header for the full picture).
+		// Plaintext sync fields are stored under password_plain /
+		// prowlarr_api_key_plain but the runtime reads them via the
+		// unsuffixed names; remap.
 		var runtimeKey = key;
 		if (key === "password_plain") runtimeKey = "password";
 		if (key === "prowlarr_api_key_plain") runtimeKey = "prowlarr_api_key";
 
-		// Encrypted blobs in storage.sync (legacy from <1.5.8) are never read
-		// by the runtime — they're cleaned up by the migration block in the
-		// load callback. Drop them silently if they appear via onChanged.
+		// Legacy encrypted blobs in storage.sync (from <1.5.8) are never read.
+		// The migration block in the load callback wipes them on first launch;
+		// drop any onChanged events for them in the meantime.
 		if (namespace === "sync" && (key === "password" || key === "prowlarr_api_key")) {
 			continue;
 		}
@@ -87,12 +67,8 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 			applyIconPack(changes[key].newValue);
 		}
 
-		// When the toggle flips OFF (synced from another device), the
-		// encrypted blob in storage.local becomes stale — clear it so the
-		// runtime doesn't accidentally try to decrypt it as a fallback.
-		// When the toggle flips ON, the plaintext in storage.sync becomes
-		// stale on this device's view, but we leave sync cleanup to whoever
-		// flipped the toggle (i.e. options.js doSave handles it).
+		// Toggle just flipped to OFF (most likely via sync from another device).
+		// The encrypted blob in this device's storage.local is now stale, wipe it.
 		if (key === "store_credentials_locally" && changes[key].newValue === false) {
 			chrome.storage.local.remove(["password", "prowlarr_api_key"]);
 		}
@@ -135,51 +111,30 @@ chrome.storage.local.get(null, function (localItems) {
 			ExtensionConfig.prowlarr_api_key = localItems.prowlarr_api_key !== undefined
 				? localItems.prowlarr_api_key : syncItems.prowlarr_api_key;
 		} else {
-			// Plaintext: read directly from storage.sync.*_plain.
-			// We expose plaintext via the encrypted-blob field name so the
-			// rest of the extension's runtime can read ExtensionConfig.password
-			// uniformly. PasswordCrypto.decrypt() in background.js handles
-			// both formats transparently.
+			// Plaintext from sync. Stored under unsuffixed runtime key so
+			// PasswordCrypto.decrypt() (auto-detects format) reads it uniformly.
 			ExtensionConfig.password = syncItems.password_plain;
 			ExtensionConfig.prowlarr_api_key = syncItems.prowlarr_api_key_plain;
 		}
 
-		// ── Migration on upgrade ────────────────────────────────────────
-		// Three cohorts:
-		//   • <=1.5.6 (no toggle anywhere): default into encrypted-local mode
-		//     and copy any sync-stored encrypted blobs to local.
-		//   • 1.5.7 (encrypted-everywhere, toggle in local): keep their toggle
-		//     value but move it to storage.sync. Encrypted blobs in sync get
-		//     cleaned up.
-		//   • 1.5.8 (toggle in local, _plain fields in sync, no toggle in sync):
-		//     same migration — move the toggle to sync. _plain fields stay
-		//     where they are.
+		// Migration on upgrade. The toggle moved from storage.local (1.5.7/1.5.8)
+		// to storage.sync (1.5.9+); legacy encrypted blobs in storage.sync (<1.5.8)
+		// are dead weight. Pre-1.5.7 had no toggle at all, default to ON.
 		var migrateLocal = {};
 		var migrateSync = {};
 		var legacyLocalKeys = [];
 		var legacyEncryptedInSync = false;
 
 		if (syncItems.store_credentials_locally === undefined) {
-			// Toggle isn't in sync yet. Either it's somewhere in local
-			// (1.5.7/1.5.8 user) or nowhere (1.5.6 user) — either way, write
-			// the resolved value into sync so future reads are consistent.
 			migrateSync.store_credentials_locally = localMode;
 		}
-
 		if (localItems.store_credentials_locally !== undefined) {
-			// Toggle has been migrated to sync (or will be by this run); the
-			// per-device copy in storage.local is no longer used.
 			legacyLocalKeys.push("store_credentials_locally");
 		}
-
 		if (syncItems.password !== undefined || syncItems.prowlarr_api_key !== undefined) {
-			// <1.5.8 had encrypted blobs in storage.sync. They're never read
-			// by the new runtime; clean them up so the sync namespace stays
-			// tidy.
 			legacyEncryptedInSync = true;
-
-			// On a 1.5.6 fresh-install path: also copy them into storage.local
-			// so the active device keeps working without a re-prompt.
+			// <=1.5.6 path: copy legacy sync blob to local so active device
+			// keeps working without re-prompt.
 			if (localItems.store_credentials_locally === undefined &&
 				syncItems.store_credentials_locally === undefined) {
 				if (localItems.password === undefined && syncItems.password) {

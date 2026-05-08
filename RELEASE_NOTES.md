@@ -2,6 +2,36 @@
 
 ---
 
+## v1.5.11 — Hotfix: password lost when toggling credential sync without retyping
+*2026-05-05*
+
+Two fixes around the credential-sync toggle.
+
+### Bug Fixes
+
+- **Password (and Prowlarr API key) could be lost when toggling "Keep credentials on this device only" off then back on without retyping** — In v1.5.10 `saveOptions()` skipped re-encrypting credentials in encrypted-local mode if the form value matched what was loaded. That optimization was unsafe across mode transitions: switching to plaintext-sync wipes `storage.local.password`, then switching back to encrypted-local saw `passwordChanged === false` and never restored it. Result: no password anywhere, login fails silently, and via the account-wide toggle the broken state propagated to every device on the same browser account. Fix: drop the change-detection in encrypted mode and always re-encrypt the form value on Apply. AES-GCM is fast enough that the optimization isn't worth the bug.
+- **Debug-mode log leaked plaintext credentials** — `js/options.js`'s `storage.onChanged` listener logged `Old: "<value>", New: "<value>"` for every changed key. With debug mode on and sync mode unchecked, the user's plaintext password (and Prowlarr API key) ended up in the browser console. Logging now redacts `password`, `password_plain`, `prowlarr_api_key`, and `prowlarr_api_key_plain`.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `manifest.json` | Version bumped to `1.5.11` |
+| `js/options.js` | `saveOptions()` always re-encrypts in encrypted mode; `storage.onChanged` redacts credential keys before debug-logging |
+| `js/crypto.js` | Removed unused `resolveCredential` helper added in v1.5.9 (runtime never called it — `decrypt()` auto-detects format already); shortened header comment |
+| `js/global_options.js` | Trimmed verbose comments, no behaviour change |
+| `js/background.js` | Trimmed verbose comments, no behaviour change |
+| `options.html` | Slightly tightened the helper text under the credentials toggle |
+
+### Compatibility
+
+- No storage schema changes.
+- No permissions changes.
+- No AMO-safety regression (`innerHTML`-free code preserved).
+- Upgrades from v1.5.10 are immediate. Users who hit the bug and lost their password will need to re-enter it once on any device.
+
+---
+
 ## v1.5.10 — Hotfix: PasswordCrypto.resolveCredential is not a function
 *2026-05-05*
 

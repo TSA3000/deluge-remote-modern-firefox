@@ -10,9 +10,8 @@ function saveOptions(callback) {
 	var plainPassword = document.getElementById("password").value;
 	var plainProwlarrKey = document.getElementById("prowlarr_api_key").value;
 
-	// Per-device flag:
-	//   true  (checked, default) → password encrypted, kept on this device only
-	//   false (unchecked)        → password stored as plaintext in sync, shared across all devices
+	// localOnly === true  -> encrypted blob in storage.local
+	// localOnly === false -> plaintext in storage.sync (shared across devices)
 	var localOnly = document.getElementById("store_credentials_locally").checked;
 
 	// Non-credential settings always sync regardless of mode.
@@ -44,29 +43,20 @@ function saveOptions(callback) {
 		"version": chrome.runtime.getManifest().version
 	};
 
-	// As of 1.5.9 the toggle is account-wide (storage.sync) so unchecking on
-	// one device propagates the new mode + plaintext credentials to every
-	// device on the same browser account. The toggle write goes into
-	// syncSettings below.
+	// Toggle moved from storage.local to storage.sync in 1.5.9 so unchecking
+	// on one device propagates to all devices on the account.
 	syncSettings.store_credentials_locally = localOnly;
 
 	var localSettings = {};
-
-	// Cleanup lists — credentials always live in exactly one namespace at a
-	// time. Whichever one we aren't writing to gets wiped to prevent stale
-	// data from a previous mode.
 	var syncRemove = [];
 	var localRemove = [];
 
-	// Drop the legacy per-device toggle from storage.local if it's still
-	// hanging around from a 1.5.7/1.5.8 install. The migration block in
-	// global_options.js handles this on load too, but doing it here on every
-	// Apply keeps things tidy.
+	// Sweep stale per-device toggle from storage.local for 1.5.7/1.5.8 upgraders.
 	localRemove.push("store_credentials_locally");
 
 	function finishSave(encryptedPassword, encryptedProwlarrKey) {
 		if (localOnly) {
-			// ─── Encrypted local mode (more secure) ─────────────────
+			// Encrypted local mode.
 			// Encrypted blobs go into storage.local.password / .prowlarr_api_key.
 			// Wipe any plaintext from sync, plus legacy <1.5.8 encrypted blobs.
 			if (encryptedPassword !== null) {
@@ -81,15 +71,12 @@ function saveOptions(callback) {
 			}
 			syncRemove.push("password", "password_plain", "prowlarr_api_key", "prowlarr_api_key_plain");
 		} else {
-			// ─── Plaintext sync mode (less secure, multi-device) ────
-			// Plaintext goes to storage.sync.password_plain / .prowlarr_api_key_plain.
-			// We always rewrite plaintext on Apply so toggling FROM encrypted
-			// mode propagates correctly even if the password didn't change.
+			// Plaintext sync mode. Write plaintext, wipe encrypted local blobs
+			// and any legacy encrypted blobs in sync.
 			syncSettings.password_plain = plainPassword;
 			syncSettings.prowlarr_api_key_plain = plainProwlarrKey;
 			_originalPassword = plainPassword;
 			_originalProwlarrApiKey = plainProwlarrKey;
-			// Wipe encrypted blobs from local + legacy encrypted from sync.
 			localRemove.push("password", "prowlarr_api_key");
 			syncRemove.push("password", "prowlarr_api_key");
 		}
@@ -105,30 +92,23 @@ function saveOptions(callback) {
 		});
 	}
 
-	// In encrypted-local mode we encrypt before writing; in plaintext-sync
-	// mode we don't bother (faster + plaintext is what we're writing anyway).
+	// Always re-encrypt and write the form value on Apply when in encrypted
+	// mode. Skipping this when the password "didn't change" was unsafe across
+	// toggle transitions — see release notes for v1.5.11.
 	if (localOnly) {
-		var passwordChanged = (plainPassword !== _originalPassword);
-		var prowlarrKeyChanged = (plainProwlarrKey !== _originalProwlarrApiKey);
-
-		var pwPromise = passwordChanged
-			? PasswordCrypto.encrypt(plainPassword).catch(function (err) {
-				console.error("Failed to encrypt password:", err);
-				return null;
-			})
-			: Promise.resolve(null);
-		var keyPromise = prowlarrKeyChanged
-			? PasswordCrypto.encrypt(plainProwlarrKey).catch(function (err) {
-				console.error("Failed to encrypt prowlarr api key:", err);
-				return null;
-			})
-			: Promise.resolve(null);
+		var pwPromise = PasswordCrypto.encrypt(plainPassword).catch(function (err) {
+			console.error("Failed to encrypt password:", err);
+			return null;
+		});
+		var keyPromise = PasswordCrypto.encrypt(plainProwlarrKey).catch(function (err) {
+			console.error("Failed to encrypt prowlarr api key:", err);
+			return null;
+		});
 
 		Promise.all([pwPromise, keyPromise]).then(function (results) {
 			finishSave(results[0], results[1]);
 		});
 	} else {
-		// Plaintext mode — no encryption work to do.
 		finishSave(null, null);
 	}
 }
@@ -346,7 +326,12 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 		// after editing a single field. Only report messages for keys
 		// whose value actually changed.
 		if (storageChange.oldValue === storageChange.newValue) continue;
-		debug_log('Storage key "' + key + '" changed. Old: "' + storageChange.oldValue + '", New: "' + storageChange.newValue + '"');
+		if (key === "password" || key === "password_plain" ||
+			key === "prowlarr_api_key" || key === "prowlarr_api_key_plain") {
+			debug_log('Storage key "' + key + '" changed (value redacted)');
+		} else {
+			debug_log('Storage key "' + key + '" changed. Old: "' + storageChange.oldValue + '", New: "' + storageChange.newValue + '"');
+		}
 
 		switch (key) {
 			case "address_protocol":
@@ -423,8 +408,8 @@ chrome.storage.onChanged.addListener(function (changes, namespace) {
 			case "store_credentials_locally":
 				messages.push(
 					storageChange.newValue
-						? "Credentials encrypted on this device only. (More secure)"
-						: "Credentials syncing in plain text across devices. (Less secure)"
+						? "Credentials encrypted, kept on this device."
+						: "Credentials stored as plain text in sync storage."
 				);
 				break;
 		}
@@ -467,21 +452,20 @@ chrome.storage.local.get(null, function (localItems) {
 	chrome.storage.sync.get(null, function (syncItems) {
 		syncItems = syncItems || {};
 
-		// Resolve toggle. As of 1.5.9 it lives in storage.sync. Fall back to
-		// the legacy storage.local copy for users upgrading from 1.5.7/1.5.8.
+		// Toggle: storage.sync (1.5.9+), fall back to storage.local for 1.5.7/1.5.8 upgrades.
 		var localOnly;
 		if (syncItems.store_credentials_locally !== undefined) {
 			localOnly = (syncItems.store_credentials_locally !== false);
 		} else if (localItems.store_credentials_locally !== undefined) {
 			localOnly = (localItems.store_credentials_locally !== false);
 		} else {
-			localOnly = true; // fresh install
+			localOnly = true;
 		}
 		var toggleEl = document.getElementById("store_credentials_locally");
 		if (toggleEl) toggleEl.checked = localOnly;
 
-		// Load non-credential settings from sync. Skip credential keys (handled
-		// below) and the toggle (already handled above).
+		// Non-credential settings from sync. Skip the credential fields and
+		// the toggle (handled separately).
 		var SKIP_KEYS = [
 			"password", "password_plain", "prowlarr_api_key", "prowlarr_api_key_plain",
 			"store_credentials_locally"
@@ -498,14 +482,9 @@ chrome.storage.local.get(null, function (localItems) {
 			}
 		}
 
-		// Credentials. Two modes:
-		//   localOnly=true:  encrypted blob in storage.local — decrypt for display
-		//   localOnly=false: plaintext in storage.sync       — display directly
-		// On migration from <1.5.8: storage.sync had encrypted blobs under
-		// `password` / `prowlarr_api_key` (no _plain suffix). Treat that as
-		// encrypted-mode source data on first load — only the device whose
-		// local key created the blob can decrypt it. global_options.js's
-		// migration block writes the result into storage.local.password.
+		// Credentials. Encrypted mode reads from storage.local (or legacy
+		// storage.sync for <1.5.8 upgrades) and decrypts. Plaintext mode
+		// reads storage.sync.password_plain directly.
 		if (localOnly) {
 			var encrypted = localItems.password !== undefined ? localItems.password : syncItems.password;
 			if (encrypted) {
