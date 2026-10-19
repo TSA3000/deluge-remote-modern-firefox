@@ -2,6 +2,30 @@
 
 ---
 
+## v1.5.12 — Fix: no torrents shown when the Deluge Label plugin is disabled
+*2026-10-19*
+
+### Bug Fixes
+
+- **Popup showed no torrents when the Label plugin was not enabled in Deluge** — Without the plugin, `web.update_ui` returns no `label` filter, so the popup's Label filter `<select>` stayed empty and its value was `""` instead of `"All"`. `renderTable()` then compared `""` against each torrent's (undefined) label and filtered out every torrent. An empty filter value is now treated as `"All"` (state, tracker and label), so a remembered label that no longer exists in Deluge can't hide everything either.
+- **Label controls hidden when the plugin is off** — The Label filter and the per-torrent label dropdown are only shown when Deluge reports the Label plugin as enabled.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `manifest.json` | Version bumped to `1.5.12` |
+| `js/torrents.js` | Tracks whether label filters were returned; new `Torrents.hasLabels()` |
+| `js/popup.js` | Empty filter value treated as `"All"`; label filter and per-torrent label dropdown hidden without the Label plugin |
+| `popup.html` | Label filter wrapped in `#filter_label_wrap` so it can be hidden |
+
+### Compatibility
+
+- No storage schema changes.
+- No permissions changes.
+
+---
+
 ## v1.5.11 — Hotfix: password lost when toggling credential sync without retyping
 *2026-05-05*
 
