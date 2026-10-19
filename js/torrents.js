@@ -13,6 +13,7 @@ var Torrents = (function () {
 	var torrentMap = {};
 	var globalInformation = {};
 	var availableLabels = [];
+	var labelsEnabled = false; // Label plugin enabled on the daemon
 
 	var eventsRegistered = false;
 	var pollCount = 0;
@@ -46,6 +47,7 @@ var Torrents = (function () {
 	pub.getById = function (val) { return torrentMap[val] || false; };
 	pub.getGlobalInformation = function () { return globalInformation; };
 	pub.getLabels = function () { return availableLabels; };
+	pub.hasLabels = function () { return labelsEnabled; };
 
 	/**
 	 * Remove a torrent from the local state and update global counters.
@@ -176,6 +178,7 @@ var Torrents = (function () {
 		}
 
 		availableLabels = [];
+		labelsEnabled = !!filters.label;
 		if (filters.label) {
 			for (var i = 0; i < filters.label.length; i++) {
 				var name = filters.label[i][0];

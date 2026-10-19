@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", function () {
 			'<td class="table_cell_ratio">Ratio: ' + torrent.getRatio() + '</td>' +
 			'<td class="table_cell_peers">Peers: ' + torrent.num_peers + '/' + torrent.total_peers + '</td>' +
 			'<td class="table_cell_seeds">Seeds: ' + torrent.num_seeds + '/' + torrent.total_seeds + '</td>' +
-			'<td class="table_cell_label"><select class="label_select" data-torrent-id="' + torrent.id + '">' + cachedLabelOptionsHtml + '</select></td>' +
+			(Torrents.hasLabels() ? '<td class="table_cell_label"><select class="label_select" data-torrent-id="' + torrent.id + '">' + cachedLabelOptionsHtml + '</select></td>' : '') +
 			'<td class="table_cell_speed">' + torrent.getSpeeds() + '</td>' +
 			'</tr></table>' +
 			'<table><tr><td class="table_cell_progress">' +
@@ -122,13 +122,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		rebuildLabelOptions();
 
+		var labelFilterWrap = document.getElementById("filter_label_wrap");
+		if (labelFilterWrap) labelFilterWrap.style.display = Torrents.hasLabels() ? "" : "none";
+
 		var filterState = document.getElementById("filter_state");
 		var filterTracker = document.getElementById("filter_tracker_host");
 		var filterLabel = document.getElementById("filter_label");
 		var searchEl = document.getElementById("search_name");
-		var fState = filterState ? filterState.value : "All";
-		var fTracker = filterTracker ? filterTracker.value : "All";
-		var fLabel = filterLabel ? filterLabel.value : "All";
+		// An empty <select> (e.g. Label plugin disabled, no filter_label
+		// options) has value "" — treat that as "All", not as "no label".
+		var fState = (filterState && filterState.value) || "All";
+		var fTracker = (filterTracker && filterTracker.value) || "All";
+		var fLabel = (Torrents.hasLabels() && filterLabel && filterLabel.value) || "All";
 		var fSearch = searchEl ? searchEl.value.trim().toLowerCase() : "";
 
 		var torrents = Torrents.sort(localStorage.sortColumn || "position").getAll();
