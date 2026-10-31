@@ -104,30 +104,34 @@ function loadConfig() {
 let _configReady = loadConfig();
 function waitForConfig() { return _configReady; }
 
-chrome.storage.onChanged.addListener((changes, namespace) => {
-	for (const key in changes) {
-		let runtimeKey = key;
-		if (key === "password_plain") runtimeKey = "password";
-		if (key === "prowlarr_api_key_plain") runtimeKey = "prowlarr_api_key";
+// Credential fields and the storage-mode toggle. Their changes (including the
+// removals that come with a mode switch) re-run loadConfig(), which picks the
+// right namespace; assigning newValue directly would set undefined on removal.
+const CREDENTIAL_KEYS = ["password", "prowlarr_api_key", "password_plain", "prowlarr_api_key_plain", "store_credentials_locally"];
 
-		// Legacy encrypted blobs from <1.5.8 (storage.sync); never read by runtime.
-		if (namespace === "sync" && (key === "password" || key === "prowlarr_api_key")) {
+chrome.storage.onChanged.addListener((changes, namespace) => {
+	let reloadCredentials = false;
+	for (const key in changes) {
+		if (CREDENTIAL_KEYS.includes(key)) {
+			reloadCredentials = true;
+			if (key === "store_credentials_locally" && changes[key].newValue === false) {
+				// Toggle just flipped OFF (likely from another device via sync) —
+				// the encrypted blob in storage.local is stale.
+				chrome.storage.local.remove(["password", "prowlarr_api_key"]);
+			}
 			continue;
 		}
 
-		ExtensionConfig[runtimeKey] = changes[key].newValue;
+		ExtensionConfig[key] = changes[key].newValue;
 
 		if (key === "context_menu") {
 			updateContextMenu(changes[key].newValue);
 		}
-
-		// Toggle just flipped OFF (likely from another device via sync) —
-		// the encrypted blob in storage.local is stale.
-		if (key === "store_credentials_locally" && changes[key].newValue === false) {
-			chrome.storage.local.remove(["password", "prowlarr_api_key"]);
-		}
 	}
-	_configReady = Promise.resolve();
+	if (reloadCredentials) {
+		// Chain on the pending load so callers never see a half-loaded config.
+		_configReady = _configReady.then(loadConfig, loadConfig);
+	}
 });
 
 // ── Debug Log ───────────────────────────────────────────────────────────────
@@ -335,10 +339,20 @@ const ProwlarrAPI = {
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 // ── Background Logic ────────────────────────────────────────────────────────
-let statusTimer = null;
-
+// Periodic status check. chrome.alarms survives the background being suspended
+// (setTimeout does not), and one named alarm means one schedule, however many
+// checkStatus() calls run at the same time.
+const STATUS_ALARM = "deluge_status_check";
 const STATUS_CHECK_ERROR_INTERVAL = 120000;
 const STATUS_CHECK_INTERVAL       = 60000;
+
+function scheduleStatusCheck(ms) {
+	chrome.alarms.create(STATUS_ALARM, { delayInMinutes: ms / 60000 });
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+	if (alarm.name === STATUS_ALARM) waitForConfig().then(() => checkStatus());
+});
 
 function badgeText(text, colour) {
 	debug_log("badgeText:", text, colour);
@@ -350,26 +364,38 @@ function badgeText(text, colour) {
 }
 
 // ── Daemon / Connection ─────────────────────────────────────────────────────
-async function startDaemon(hostId) {
-	const status = await DelugeAPI.call("web.get_host_status", [hostId]);
-	if (status.result && status.result[3] === "Offline") {
-		await DelugeAPI.call("web.start_daemon", [status.result[2]]);
-		await new Promise(r => setTimeout(r, 2000));
-	}
+// web.get_hosts: Deluge 2 -> [id, host, port, user]; 1.3 -> [id, host, port, status].
+// web.get_host_status: Deluge 2 -> [id, status, version]; 1.3 -> [id, host, port, status, version].
+async function getHostStatus(hostId) {
+	const resp = await DelugeAPI.call("web.get_host_status", [hostId]);
+	const r = resp.result;
+	if (!Array.isArray(r)) return null;
+	return r.length >= 5 ? r[3] : r[1];
 }
 
 async function connectToDaemon() {
-    const hosts = await DelugeAPI.call("web.get_hosts");
-    if (hosts.error || !hosts.result || hosts.result.length === 0) {
-        throw new Error("No hosts available");
-    }
-    // Prefer already-connected host, otherwise use first
-    const connected = hosts.result.find(h => h[3] === "Connected");
-    const host = connected || hosts.result[0];
-    const hostId = host[0];
-    await startDaemon(hostId);
-    const conn = await DelugeAPI.call("web.connect", [hostId]);
-    if (conn.error) throw new Error("Failed to connect to daemon");
+	const hosts = await DelugeAPI.call("web.get_hosts");
+	if (hosts.error || !hosts.result || hosts.result.length === 0) {
+		throw new Error("No hosts available");
+	}
+	// Prefer a connected host, then an online one, otherwise the first.
+	let host = null, status = null;
+	for (const h of hosts.result) {
+		const s = await getHostStatus(h[0]);
+		if (s === "Connected") { host = h; status = s; break; }
+		if (s === "Online" && !host) { host = h; status = s; }
+	}
+	if (!host) {
+		host = hosts.result[0];
+		status = await getHostStatus(host[0]);
+	}
+	if (status === "Offline") {
+		// Only works when the daemon runs on the same machine as the web UI.
+		await DelugeAPI.call("web.start_daemon", [host[2]]);
+		await new Promise(r => setTimeout(r, 2000));
+	}
+	const conn = await DelugeAPI.call("web.connect", [host[0]]);
+	if (conn.error) throw new Error("Failed to connect to daemon");
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -379,9 +405,18 @@ async function connectToDaemon() {
 // ── Password Crypto (AES-GCM) ───────────────────────────────────────────────
 const PasswordCrypto = {
 	_cachedKey: null,
+	_keyPromise: null,
 	KEY_STORAGE: "encryption_key_jwk",
 
-	async getKey() {
+	// One shared promise, so concurrent callers can't each create a key.
+	getKey() {
+		if (!this._keyPromise) {
+			this._keyPromise = this._loadKey().catch((e) => { this._keyPromise = null; throw e; });
+		}
+		return this._keyPromise;
+	},
+
+	async _loadKey() {
 		if (this._cachedKey) return this._cachedKey;
 
 		const result = await chrome.storage.local.get(this.KEY_STORAGE);
@@ -403,17 +438,24 @@ const PasswordCrypto = {
 
 	async decrypt(stored) {
 		if (!stored || stored === "") return "";
+		let parsed;
 		try {
-			const parsed = JSON.parse(stored);
-			if (!parsed._encrypted) return stored;
+			parsed = JSON.parse(stored);
+		} catch (e) {
+			// Not JSON — plain text from an old version, return as-is
+			return stored;
+		}
+		if (!parsed || !parsed._encrypted) return stored;
+		try {
 			const key = await this.getKey();
 			const iv = Uint8Array.from(atob(parsed.iv), c => c.charCodeAt(0));
 			const data = Uint8Array.from(atob(parsed.data), c => c.charCodeAt(0));
 			const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
 			return new TextDecoder().decode(decrypted);
 		} catch (e) {
-			// Not encrypted (plain text from old version) — return as-is
-			return stored;
+			// Encrypted with a key we don't have: never send the blob itself.
+			console.error("Credential decryption failed:", e);
+			return "";
 		}
 	}
 };
@@ -426,26 +468,35 @@ async function login() {
 }
 
 // ── Status Check ────────────────────────────────────────────────────────────
-async function checkStatus(options) {
+async function checkStatus(options, afterLogin) {
 	debug_log("Deluge: Checking status");
-	clearTimeout(statusTimer);
 
 	const resp = await DelugeAPI.call("web.connected", [], options);
 
 	if (resp.result === true) {
 		activate();
-		statusTimer = setTimeout(checkStatus, STATUS_CHECK_INTERVAL);
+		scheduleStatusCheck(STATUS_CHECK_INTERVAL);
 		return { connected: true };
+	}
+
+	if (resp.error && resp.error.type === "http") {
+		// e.g. 502/404 from a reverse proxy: not a daemon problem
+		debug_log("Deluge: HTTP error", resp.error.status);
+		scheduleStatusCheck(STATUS_CHECK_ERROR_INTERVAL);
+		deactivate();
+		return { connected: false, reason: "http_error" };
 	}
 
 	if (resp.error && resp.error.type === "api") {
 		if (resp.error.code === DelugeAPI.API_AUTH_CODE) {
-			const loginResp = await login();
-			if (loginResp.result === true) {
-				return checkStatus(options);
+			// Log in once; if the session still isn't accepted, stop here
+			// instead of looping on auth.login.
+			const loginResp = afterLogin ? null : await login();
+			if (loginResp && loginResp.result === true) {
+				return checkStatus(options, true);
 			} else {
 				debug_log("Deluge: Incorrect login details.");
-				statusTimer = setTimeout(checkStatus, STATUS_CHECK_ERROR_INTERVAL);
+				scheduleStatusCheck(STATUS_CHECK_ERROR_INTERVAL);
 				deactivate();
 				chrome.runtime.sendMessage({ msg: "auto_login_failed" }).catch(() => {});
 				return { connected: false, reason: "auth_failed" };
@@ -453,13 +504,13 @@ async function checkStatus(options) {
 		}
 		debug_log("Deluge: API error occurred");
 		deactivate();
-		statusTimer = setTimeout(checkStatus, STATUS_CHECK_INTERVAL);
+		scheduleStatusCheck(STATUS_CHECK_INTERVAL);
 		return { connected: false, reason: "api_error" };
 	}
 
 	if (resp.error && resp.error.type === "network") {
 		debug_log("Error: Network issue -", resp.error.message);
-		statusTimer = setTimeout(checkStatus, STATUS_CHECK_ERROR_INTERVAL);
+		scheduleStatusCheck(STATUS_CHECK_ERROR_INTERVAL);
 		deactivate();
 		return { connected: false, reason: "network_error" };
 	}
@@ -468,12 +519,12 @@ async function checkStatus(options) {
 	try {
 		await connectToDaemon();
 		activate();
-		statusTimer = setTimeout(checkStatus, STATUS_CHECK_INTERVAL);
+		scheduleStatusCheck(STATUS_CHECK_INTERVAL);
 		return { connected: true };
 	} catch (e) {
 		debug_log("Deluge: Failed to connect to daemon", e);
 		deactivate();
-		statusTimer = setTimeout(checkStatus, STATUS_CHECK_INTERVAL);
+		scheduleStatusCheck(STATUS_CHECK_INTERVAL);
 		return { connected: false, reason: "daemon_error" };
 	}
 }
@@ -513,8 +564,23 @@ function deactivate() {
 	chrome.runtime.sendMessage({ msg: "extension_deactivated" }).catch(() => {});
 }
 
+// ── Ensure connection before adding ─────────────────────────────────────────
+// Link clicks can wake a suspended background with config not loaded yet, and
+// the Deluge web session (default 1 h) or daemon connection may have expired
+// since the last status check. Log in / connect first, like the popup does.
+async function ensureConnected(tabId) {
+	await waitForConfig();
+	const status = await checkStatus();
+	if (status.connected) return true;
+	debug_log("Deluge: not connected, cannot add torrent:", status.reason);
+	badgeText("Fail", "#FF0000");
+	if (tabId) chrome.tabs.sendMessage(tabId, { msg: "Deluge: Not connected to Deluge (" + status.reason + ")." }).catch(() => {});
+	return false;
+}
+
 // ── Add Torrent from URL ────────────────────────────────────────────────────
 async function addTorrentFromUrl(url, tabId) {
+	if (!(await ensureConnected(tabId))) return;
 	debug_log("Sending URL to deluge");
 
 	const dl = await DelugeAPI.call("web.download_torrent_from_url", [url, ""]);
@@ -555,6 +621,7 @@ async function addTorrentFromUrl(url, tabId) {
 
 // ── Add Torrent from Magnet ─────────────────────────────────────────────────
 async function addTorrentFromMagnet(url, tabId) {
+	if (!(await ensureConnected(tabId))) return;
 	const resp = await DelugeAPI.call("core.add_torrent_magnet", [url, {}]);
 
 	if (resp.result) {
@@ -569,7 +636,10 @@ async function addTorrentFromMagnet(url, tabId) {
 }
 
 // ── Context Menu ────────────────────────────────────────────────────────────
+// chrome.contextMenus does not exist on Firefox for Android: calling it there
+// threw at startup ("service worker not responding").
 function updateContextMenu(enabled) {
+	if (!chrome.contextMenus) return;
 	chrome.contextMenus.removeAll(() => {
 		if (enabled) {
 			chrome.contextMenus.create({
@@ -581,7 +651,7 @@ function updateContextMenu(enabled) {
 	});
 }
 
-chrome.contextMenus.onClicked.addListener((info, tab) => {
+chrome.contextMenus?.onClicked.addListener((info, tab) => {
 	debug_log("Context menu sending link to Deluge:", info.linkUrl);
 	const url = info.linkUrl;
 	if (/^magnet:/.test(url)) {
@@ -623,15 +693,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 			return false;
 
 		case "ExtensionConfig":
-			sendResponse({ value: ExtensionConfig[request.key] });
-			return false;
+			waitForConfig().then(() => sendResponse({ value: ExtensionConfig[request.key] }));
+			return true;
 
 		case "check_status":
-			checkStatus({ timeout: 1000 }).then(result => sendResponse(result));
+			waitForConfig()
+				.then(() => checkStatus({ timeout: 5000 }))
+				.then(result => sendResponse(result));
 			return true;
 
 		case "deluge_api":
-			DelugeAPI.call(request.apiMethod, request.params, request.options || {})
+			waitForConfig()
+				.then(() => DelugeAPI.call(request.apiMethod, request.params, request.options || {}))
 				.then(resp => sendResponse(resp));
 			return true;
 
@@ -677,12 +750,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 			return true;
 
 		case "get_prowlarr_endpoint":
-			sendResponse({ endpoint: ProwlarrAPI.endpoint() });
-			return false;
+			waitForConfig().then(() => sendResponse({ endpoint: ProwlarrAPI.endpoint() }));
+			return true;
 
 		case "get_endpoint":
-			sendResponse({ endpoint: DelugeAPI.endpoint() });
-			return false;
+			waitForConfig().then(() => sendResponse({ endpoint: DelugeAPI.endpoint() }));
+			return true;
 
 		case "get_version":
 			getVersion().then(ver => sendResponse(ver));

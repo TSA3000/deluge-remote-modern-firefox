@@ -6,7 +6,13 @@ var _storedEncryptedPassword = "";
 var _originalProwlarrApiKey = "";
 var _storedEncryptedProwlarrApiKey = "";
 
+// Every save (Save, Apply, Test connection, version-upgrade re-save) waits for
+// the stored credentials to be loaded into the form first.
 function saveOptions(callback) {
+	_credentialsLoaded.then(function () { saveOptionsNow(callback); });
+}
+
+function saveOptionsNow(callback) {
 	var plainPassword = document.getElementById("password").value;
 	var plainProwlarrKey = document.getElementById("prowlarr_api_key").value;
 
@@ -112,6 +118,12 @@ function saveOptions(callback) {
 		finishSave(null, null);
 	}
 }
+
+// Resolves once storage has been read and the stored password / API key have
+// been decrypted into the form. Saving before that would encrypt the
+// still-empty fields and wipe the stored credentials.
+var _credentialsLoadedResolve;
+var _credentialsLoaded = new Promise(function (resolve) { _credentialsLoadedResolve = resolve; });
 
 document.addEventListener("DOMContentLoaded", function () {
 	document.querySelector(".buttons .save").addEventListener("click", function () {
@@ -485,28 +497,29 @@ chrome.storage.local.get(null, function (localItems) {
 		// Credentials. Encrypted mode reads from storage.local (or legacy
 		// storage.sync for <1.5.8 upgrades) and decrypts. Plaintext mode
 		// reads storage.sync.password_plain directly.
+		var credentialPromises = [];
 		if (localOnly) {
 			var encrypted = localItems.password !== undefined ? localItems.password : syncItems.password;
 			if (encrypted) {
 				_storedEncryptedPassword = encrypted;
-				PasswordCrypto.decrypt(encrypted).then(function (plainPassword) {
+				credentialPromises.push(PasswordCrypto.decrypt(encrypted).then(function (plainPassword) {
 					document.getElementById("password").value = plainPassword;
 					_originalPassword = plainPassword;
 				}).catch(function () {
 					document.getElementById("password").value = "";
 					_originalPassword = "";
-				});
+				}));
 			}
 			var encryptedKey = localItems.prowlarr_api_key !== undefined ? localItems.prowlarr_api_key : syncItems.prowlarr_api_key;
 			if (encryptedKey) {
 				_storedEncryptedProwlarrApiKey = encryptedKey;
-				PasswordCrypto.decrypt(encryptedKey).then(function (plainKey) {
+				credentialPromises.push(PasswordCrypto.decrypt(encryptedKey).then(function (plainKey) {
 					document.getElementById("prowlarr_api_key").value = plainKey;
 					_originalProwlarrApiKey = plainKey;
 				}).catch(function () {
 					document.getElementById("prowlarr_api_key").value = "";
 					_originalProwlarrApiKey = "";
-				});
+				}));
 			}
 		} else {
 			// Plaintext sync mode — direct read.
@@ -521,6 +534,8 @@ chrome.storage.local.get(null, function (localItems) {
 				_originalProwlarrApiKey = plainKey;
 			}
 		}
+
+		Promise.all(credentialPromises).then(_credentialsLoadedResolve);
 
 		if (window.location.search === "?newver=true" && Object.keys(syncItems).length > 0) {
 			debug_log("Version upgrade. Re-saving settings.");

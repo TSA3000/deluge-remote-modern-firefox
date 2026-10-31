@@ -19,12 +19,22 @@ var PasswordCrypto = (function () {
 	var pub = {};
 	var KEY_STORAGE = "encryption_key_jwk";
 	var cachedKey = null;
+	var keyPromise = null;
 
 	/**
 	 * Get or create the encryption key.
 	 * Key is stored in chrome.storage.local (never syncs).
 	 */
 	pub.getKey = function () {
+		// One shared promise, so concurrent callers (password + API key on
+		// the first save) can't each generate and store a different key.
+		if (!keyPromise) {
+			keyPromise = loadKey().catch(function (e) { keyPromise = null; throw e; });
+		}
+		return keyPromise;
+	};
+
+	function loadKey() {
 		return new Promise(function (resolve, reject) {
 			if (cachedKey) {
 				resolve(cachedKey);
@@ -64,7 +74,7 @@ var PasswordCrypto = (function () {
 				}
 			});
 		});
-	};
+	}
 
 	/**
 	 * Encrypt a plaintext password.

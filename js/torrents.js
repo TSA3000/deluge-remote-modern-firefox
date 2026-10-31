@@ -202,6 +202,8 @@ var Torrents = (function () {
 				el.appendChild(opt);
 			}
 			el.value = localStorage["filter_" + key] || "All";
+			// A remembered value that no longer exists leaves nothing selected
+			if (el.selectedIndex < 0) el.value = "All";
 		}
 	}
 

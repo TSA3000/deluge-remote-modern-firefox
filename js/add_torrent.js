@@ -2,8 +2,11 @@ debug_log("Creating click handler");
 document.body.addEventListener("click", function (event) {
 	var link = event.target.closest("a");
 	if (!link) return;
+	// No Deluge server configured yet: leave magnet / .torrent links to the browser.
+	if (!ExtensionConfig.address_ip) return;
 
 	var url = link.href;
+	if (typeof url !== "string") return; // SVG <a>: href is an SVGAnimatedString
 	debug_log("Click handler activated. URL: " + url);
 
 	// 1. Check for Magnet Links first

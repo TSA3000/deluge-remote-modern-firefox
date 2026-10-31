@@ -47,6 +47,14 @@ All DOM manipulation uses safe methods (`createElement`, `textContent`, `appendC
 
 ## Version History
 
+### 2026-10-31 v1.5.14 — Fix: adding torrents fails until the popup is opened, and more
+- Adding a torrent from a page link or magnet no longer fails until the popup has been opened (waits for settings, logs in and connects first)
+- Credentials are no longer wiped by the re-save after a version upgrade
+- Fixes a frozen torrent list, dropdowns closing by themselves, the <blank> filter, descending sort, the refresh interval setting and manual add of URLs with query strings
+- Deluge 2: a stopped daemon is started again; status checks keep running while the background is suspended
+- Torrent names and labels are always shown as text
+- Works on Firefox for Android (no context menu there)
+
 ### 2026-10-31 v1.5.13 — Fix: extension changed the theme of websites
 - Dark mode and icon pack no longer change the data-theme / data-icons attributes on websites you visit; they only apply to the extension's own pages.
 

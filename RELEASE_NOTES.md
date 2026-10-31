@@ -2,6 +2,45 @@
 
 ---
 
+## v1.5.14 — Fix: adding torrents fails until the popup is opened, and more
+*2026-10-31*
+
+### Bug Fixes
+
+- **Adding a torrent from a link no longer fails until the popup is opened** — a link or magnet click could wake the background before settings had loaded (request went to an empty address), and the Deluge web session (1 h by default) or the daemon connection could have expired. Each add now waits for settings, logs in and connects to the daemon first.
+- **Credentials no longer wiped on a version upgrade** — the options page re-saved settings before the stored password and Prowlarr API key had been decrypted into the form, saving them as empty. Every save (Save, Apply, Test connection) now waits until they are loaded.
+- **One encryption key on first save** — saving a password and a Prowlarr API key at the same time on a fresh install could create two keys, leaving one credential unreadable. An unreadable credential is now sent as empty instead of as the encrypted text.
+- **Torrent list no longer freezes** — after one slow or failed refresh, auto-refresh never restarted until the popup was reopened.
+- **Delete options and label dropdown stay open** — event polling redrew the list every second, closing them. It now redraws only when Deluge reports events, and not while refresh is paused.
+- **"<blank>" label and tracker filters work again** — selecting them showed all torrents.
+- **Magnet and .torrent links work normally before a server is set up** — with no Deluge address configured, clicks on them were blocked.
+- **Manual add accepts any http(s) URL** — URLs such as .../file.torrent?passkey=... or dl.php?id=5 were silently ignored; invalid input now shows a message.
+- **Deluge 2 host handling** — host and status fields were read in the Deluge 1.3 layout, so a stopped daemon was never started and a connected host was not preferred. Both layouts are now supported.
+- **Credential mode switch** — toggling "Keep credentials on this device only" could leave the background without a password until the browser restarted.
+- **Status checks use alarms** — the periodic connection check stopped when the background was suspended, so the toolbar icon could show connected while the server was down; parallel checks no longer stack up timers.
+- **Slower servers** — the popup connection check waited only 1 s and did not retry; it now waits 5 s and retries every 5 s while the server is unreachable.
+- **Sorting** — descending sort swapped torrents with equal values on every refresh.
+- **Refresh interval setting** — the popup used the default interval because it read the setting before it was loaded.
+- **HTTP errors and login retries** — an HTTP error from a reverse proxy (e.g. 502) is reported as such instead of as a daemon error, and login is retried once instead of without limit.
+- **Torrent names and labels are shown as text** — they were inserted into the list as HTML, so a name containing markup could change the layout or load remote content.
+- **Firefox for Android** — the background no longer fails at startup on Android, where the context menu API does not exist.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `manifest.json` | Version bump; `alarms` permission |
+| `js/background.js` | Connect before add, config waits in message handlers, alarms-based status checks, Deluge 2 host fields, credential reload on mode change, one encryption key, HTTP error handling; context menu skipped on Android |
+| `js/popup.js` | Refresh restarts after errors, event redraw only on events, filter/sort fixes, manual add, refresh interval, status retry; torrent names and labels escaped |
+| `js/options.js` | Saves wait for stored credentials |
+| `js/crypto.js` | Shared key promise |
+| `js/torrents.js` | Missing remembered filter falls back to All |
+| `js/timer.js` | `setInterval()` |
+| `js/add_torrent.js` | Only intercept links when a server is configured |
+| `README.md` | Version history entry |
+
+---
+
 ## v1.5.13 — Fix: extension changed the theme of websites
 *2026-10-31*
 

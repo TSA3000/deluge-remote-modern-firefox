@@ -12,6 +12,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
 	var REFRESH_INTERVAL = ExtensionConfig.refresh_interval || 1000;
 	var refreshTimer = Timer(REFRESH_INTERVAL);
+	// ExtensionConfig is usually still the defaults here; apply the saved
+	// refresh rate once storage has loaded.
+	document.addEventListener("ExtensionConfigReady", function () {
+		REFRESH_INTERVAL = ExtensionConfig.refresh_interval || 1000;
+		refreshTimer.setInterval(REFRESH_INTERVAL);
+	});
+	// True while a dropdown or the delete options are open (refresh paused).
+	var refreshPaused = false;
 
 	var cachedLabelOptionsHtml = '<option value="">(No Label)</option>';
 	var lastLabelHash = "";
@@ -29,6 +37,18 @@ document.addEventListener("DOMContentLoaded", function () {
 		sel.style.display = ExtensionConfig.show_per_page_in_popup ? "" : "none";
 	}
 
+	// Torrent names, labels and states come from the server and are put into
+	// the row HTML string below, which DOMParser turns into nodes: escape them
+	// so a name like "<img src=...>" stays text.
+	function esc(value) {
+		return String(value)
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;")
+			.replace(/'/g, "&#39;");
+	}
+
 	function rebuildLabelOptions() {
 		var labels = Torrents.getLabels();
 		var hash = labels.join("|");
@@ -37,7 +57,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		var parts = ['<option value="">(No Label)</option>'];
 		for (var i = 0; i < labels.length; i++) {
-			parts.push('<option value="' + labels[i] + '">' + labels[i] + '</option>');
+			parts.push('<option value="' + esc(labels[i]) + '">' + esc(labels[i]) + '</option>');
 		}
 		cachedLabelOptionsHtml = parts.join("");
 	}
@@ -48,10 +68,10 @@ document.addEventListener("DOMContentLoaded", function () {
 		var finishedClass = torrent.is_finished ? " finished" : "";
 		var sizeText = (torrent.progress != 100 ? torrent.getHumanDownloadedSize() + " of " : "") + torrent.getHumanSize();
 
-		return '<div class="torrent_row" data-id="' + torrent.id + '">' +
+		return '<div class="torrent_row" data-id="' + esc(torrent.id) + '">' +
 			'<table><tr>' +
 			'<td class="table_cell_position">' + torrent.getPosition() + '</td>' +
-			'<td class="table_cell_name">' + torrent.name + '</td>' +
+			'<td class="table_cell_name">' + esc(torrent.name) + '</td>' +
 			'</tr></table>' +
 			'<table><tr>' +
 			'<td class="table_cell_size">' + sizeText + '</td>' +
@@ -59,13 +79,13 @@ document.addEventListener("DOMContentLoaded", function () {
 			'<td class="table_cell_ratio">Ratio: ' + torrent.getRatio() + '</td>' +
 			'<td class="table_cell_peers">Peers: ' + torrent.num_peers + '/' + torrent.total_peers + '</td>' +
 			'<td class="table_cell_seeds">Seeds: ' + torrent.num_seeds + '/' + torrent.total_seeds + '</td>' +
-			(Torrents.hasLabels() ? '<td class="table_cell_label"><select class="label_select" data-torrent-id="' + torrent.id + '">' + cachedLabelOptionsHtml + '</select></td>' : '') +
+			(Torrents.hasLabels() ? '<td class="table_cell_label"><select class="label_select" data-torrent-id="' + esc(torrent.id) + '">' + cachedLabelOptionsHtml + '</select></td>' : '') +
 			'<td class="table_cell_speed">' + torrent.getSpeeds() + '</td>' +
 			'</tr></table>' +
 			'<table><tr><td class="table_cell_progress">' +
 			'<div class="progress_bar">' +
-			'<div class="inner ' + torrent.state + finishedClass + '" style="width:' + torrent.getPercent() + '"></div>' +
-			'<span>' + torrent.getPercent() + ' - ' + torrent.state + '</span>' +
+			'<div class="inner ' + esc(torrent.state) + finishedClass + '" style="width:' + esc(torrent.getPercent()) + '"></div>' +
+			'<span>' + esc(torrent.getPercent()) + ' - ' + esc(torrent.state) + '</span>' +
 			'</div>' +
 			'</td></tr></table>' +
 			'<table><tr><td class="table_cell_actions">' +
@@ -94,15 +114,22 @@ document.addEventListener("DOMContentLoaded", function () {
 				refreshTimer.subscribe(updateTable);
 			})
 			.error(function () {
+				// Re-check the connection, and keep polling: activated() is a
+				// no-op while already active, so nothing else would resubscribe.
 				checkStatus();
+				setTimeout(function () {
+					if (extensionActivated && !refreshPaused) refreshTimer.subscribe(updateTable);
+				}, 2000);
 			});
 	}
 
 	function pauseTableRefresh() {
+		refreshPaused = true;
 		refreshTimer.unsubscribe(updateTable);
 	}
 
 	function resumeTableRefresh() {
+		refreshPaused = false;
 		refreshTimer.unsubscribe(updateTable);
 		refreshTimer.subscribe(updateTable);
 	}
@@ -129,16 +156,22 @@ document.addEventListener("DOMContentLoaded", function () {
 		var filterTracker = document.getElementById("filter_tracker_host");
 		var filterLabel = document.getElementById("filter_label");
 		var searchEl = document.getElementById("search_name");
-		// An empty <select> (e.g. Label plugin disabled, no filter_label
-		// options) has value "" — treat that as "All", not as "no label".
-		var fState = (filterState && filterState.value) || "All";
-		var fTracker = (filterTracker && filterTracker.value) || "All";
-		var fLabel = (Torrents.hasLabels() && filterLabel && filterLabel.value) || "All";
+		// A <select> with nothing selected (no options, e.g. Label plugin
+		// disabled) means "All". A selected "" option is the real "<blank>"
+		// filter (no label / no tracker) and must not become "All".
+		function filterValue(el) {
+			return (el && el.selectedIndex >= 0) ? el.value : "All";
+		}
+		var fState = filterValue(filterState);
+		var fTracker = filterValue(filterTracker);
+		var fLabel = Torrents.hasLabels() ? filterValue(filterLabel) : "All";
 		var fSearch = searchEl ? searchEl.value.trim().toLowerCase() : "";
 
 		var torrents = Torrents.sort(localStorage.sortColumn || "position").getAll();
 		if (localStorage.sortMethod === "desc") {
-			torrents.reverse();
+			// Reverse a copy: reversing the shared array in place made the next
+			// (stable) sort swap torrents with equal values on every refresh.
+			torrents = torrents.slice().reverse();
 		}
 
 		// Filter torrents first
@@ -465,6 +498,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		setTimeout(function () { addTorrentLink.blur(); }, 50);
 
+		inputBox.addEventListener("input", function () {
+			inputBox.setCustomValidity("");
+		});
+
 		inputBox.addEventListener("keydown", function (e) {
 			if (e.keyCode === 13) {
 				e.preventDefault();
@@ -474,12 +511,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		addButton.addEventListener("click", function (e) {
 			e.preventDefault();
-			var url = inputBox.value;
+			var url = inputBox.value.trim();
 
-			if (/\/(download|get)\//.test(url) || /\.torrent$/.test(url)) {
-				chrome.runtime.sendMessage({ method: "add_torrent_from_url", url: url });
-			} else if (/magnet:/.test(url)) {
+			if (/^magnet:/i.test(url)) {
 				chrome.runtime.sendMessage({ method: "add_torrent_from_magnet", url: url });
+			} else if (/^https?:\/\//i.test(url)) {
+				// Any http(s) URL: Deluge downloads it and reports if it is not a torrent
+				// (e.g. .../a.torrent?passkey=1 or dl.php?id=5).
+				chrome.runtime.sendMessage({ method: "add_torrent_from_url", url: url });
+			} else {
+				inputBox.setCustomValidity("Enter a magnet link or an http(s) torrent URL");
+				inputBox.reportValidity();
+				return;
 			}
 
 			inputBox.value = "";
@@ -621,12 +664,12 @@ document.addEventListener("DOMContentLoaded", function () {
 			if (!extensionActivated) return;
 			var req = Torrents.pollEvents();
 			if (req && req.success) {
-				req.success(function () {
-					// Re-render in case events changed the torrent list
-					if (Torrents.getAll().length > 0) {
-						renderTable();
-						renderGlobalInformation();
-					}
+				req.success(function (events) {
+					// Re-render only when events arrived, and not while a dropdown
+					// or the delete options are open (rebuilding would close them).
+					if (!events || Object.keys(events).length === 0 || refreshPaused) return;
+					renderTable();
+					renderGlobalInformation();
 				});
 			}
 		}, 1000);
@@ -657,6 +700,9 @@ document.addEventListener("DOMContentLoaded", function () {
 					span.textContent = message;
 				}
 				DomHelper.show(overlay);
+				// Server unreachable / daemon down: keep trying while the popup
+				// is open (wrong password needs the user, so no retry then).
+				if (response.reason !== "auth_failed") setTimeout(checkStatus, 5000);
 			}
 		});
 	}

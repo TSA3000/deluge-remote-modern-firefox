@@ -23,6 +23,11 @@ var Timer = function (interval) {
 		}
 	};
 
+	// Takes effect from the next tick.
+	pub.setInterval = function (ms) {
+		interval = ms;
+	};
+
 	pub.destroy = function () {
 		if (timeOut) {
 			clearTimeout(timeOut);
