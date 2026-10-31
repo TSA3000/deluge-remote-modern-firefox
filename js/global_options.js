@@ -169,8 +169,13 @@ chrome.storage.local.get(null, function (localItems) {
 	});
 });
 
+// global_options.js also runs as a content script on every website; only theme the extension's own pages.
+function isExtensionPage() {
+	return typeof location !== "undefined" && /^(chrome|moz)-extension:$/.test(location.protocol);
+}
+
 function applyDarkMode(mode) {
-	if (typeof document === "undefined") return;
+	if (typeof document === "undefined" || !isExtensionPage()) return;
 	var html = document.documentElement;
 	if (mode === "system") {
 		// Let CSS @media prefers-color-scheme handle it
@@ -182,7 +187,7 @@ function applyDarkMode(mode) {
 }
 
 function applyIconPack(pack) {
-	if (typeof document === "undefined") return;
+	if (typeof document === "undefined" || !isExtensionPage()) return;
 	var html = document.documentElement;
 	if (pack === "modern") {
 		html.setAttribute("data-icons", "modern");
